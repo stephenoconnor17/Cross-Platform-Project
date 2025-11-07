@@ -1,0 +1,125 @@
+###############################
+# Build and Binary Directories
+###############################
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Bb]uild[Ll]og.*
+
+# Build configurations
+[Dd]ebug*/
+[Rr]elease*/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+
+###############################
+# Visual Studio Files
+###############################
+.vs/
+*.user
+*.userosscache
+*.suo
+*.sln.docstates
+*.VC.db
+*.VC.VC.opendb
+
+# Local config files
+*.local.json
+
+###############################
+# .NET & NuGet
+###############################
+# Packages and NuGet cache
+*.nupkg
+*.snupkg
+*.nuspec
+*.nuget.props
+*.nuget.targets
+*.lock.json
+*.deps.json
+
+# NuGet package folders
+packages/
+**/packages/*
+!**/packages/build/
+!**/packages/repositories.config
+.nuget/
+
+# Project lock files (legacy)
+project.lock.json
+project.fragment.lock.json
+
+###############################
+# MAUI / Platform Specific
+###############################
+# Android build outputs
+*.apk
+*.aab
+Platforms/Android/Resources/Resource.designer.cs
+
+# iOS/macOS build outputs
+*.app
+*.app.dSYM
+*.ipa
+*.xcarchive
+
+# Windows build outputs
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+AppPackages/
+BundleArtifacts/
+
+###############################
+# User Settings & Secrets
+###############################
+secrets.json
+appsettings.Development.json
+appsettings.Local.json
+
+###############################
+# IDEs & Tools
+###############################
+# Rider / JetBrains
+.idea/
+*.sln.iml
+*.DotSettings.user
+
+# VS Code
+.vscode/
+*.code-workspace
+
+###############################
+# System Files
+###############################
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+###############################
+# Logs and Temp
+###############################
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+
+###############################
+# Crash Dumps
+###############################
+*.stackdump
+*.dmp
+
+###############################
+# Other generated content
+###############################
+GeneratedFiles/
+artifacts/
