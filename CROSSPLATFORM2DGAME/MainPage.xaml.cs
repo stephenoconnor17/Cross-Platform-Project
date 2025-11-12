@@ -1,56 +1,71 @@
 ﻿using Microsoft.Maui.Layouts;
+using System.Diagnostics;
 
 namespace CROSSPLATFORM2DGAME
 {
     public partial class MainPage : ContentPage
     {
+        Image playerImg;
+        Image enemyImg;
+        AbsoluteLayout mapLayout;
+        AbsoluteLayout playerLayout;
+        AbsoluteLayout enemyLayout;
 
-        public MainPage() {
+
+        public MainPage()
+        {
             InitializeComponent();
-
         }
 
+        private void initializeImgObj() 
+        {
+            playerImg = new Image {
+                Source = "player.png",
+                WidthRequest = 50,
+                HeightRequest = 50
+            };
+            enemyImg = new Image {
+                Source = "player.png",
+                WidthRequest = 50,
+                HeightRequest = 50
+            };
+        }
 
-        protected override async void OnAppearing() {
+        protected override void OnAppearing()
+        {
             base.OnAppearing();
-
-            this.Dispatcher.Dispatch(() =>
+            // Initialize layouts and images
+            mapLayout = new AbsoluteLayout
             {
-                // --- Screen center ---
-                double screenCenterX = this.Width / 2;
-                double screenCenterY = this.Height / 2;
+                BackgroundColor = Colors.LightGreen,
+                WidthRequest = 800,
+                HeightRequest = 400
+            };
 
-                // --- Map center ---
-                double mapCenterX = mapLayout.Width / 2;
-                double mapCenterY = mapLayout.Height / 2;
+            Content = mapLayout;
 
-                // --- Center player on screen ---
-                double playerX = screenCenterX - playerLayout.Width / 2;
-                double playerY = screenCenterY - playerLayout.Height / 2;
-                AbsoluteLayout.SetLayoutBounds(playerLayout, new Rect(playerX, playerY, playerLayout.Width, playerLayout.Height));
-                AbsoluteLayout.SetLayoutFlags(playerLayout, AbsoluteLayoutFlags.None);
+            mapLayout.SizeChanged += (s, e) => 
+            {
 
-                // --- Center map so its middle is under the player ---
-                mapLayout.TranslationX = -(mapCenterX - screenCenterX);
-                mapLayout.TranslationY = -(mapCenterY - screenCenterY);
+                initializeImgObj();
 
-                // --- Spawn an enemy above the player ---
-                var enemy = new Image {
-                    Source = "enemy.png", // make sure this is a visible enemy image
-                    WidthRequest = 50,
-                    HeightRequest = 100
-                };
+                double playerCenterX = mapLayout.Width / 2 - playerImg.Width/2;
+                double playerCenterY = mapLayout.Height / 2 - playerImg.Height/2;
 
-                // Enemy position relative to the map
-                double enemyX = mapCenterX - enemy.WidthRequest / 2;  // horizontally center on map
-                double enemyY = mapCenterY - 150;                    // 150px above map center
-
-                AbsoluteLayout.SetLayoutBounds(enemy, new Rect(enemyX, enemyY, enemy.WidthRequest, enemy.HeightRequest));
-                AbsoluteLayout.SetLayoutFlags(enemy, AbsoluteLayoutFlags.None);
-                mapLayout.Children.Add(enemy);
-            });
-
-            //DisplayAlert("HELP", mapCenterX.ToString(), "x");
+                playerLayout = new AbsoluteLayout();
+                enemyLayout = new AbsoluteLayout();
+                AbsoluteLayout.SetLayoutBounds(playerImg, new Rect(playerCenterX, playerCenterY, 50, 50));
+                AbsoluteLayout.SetLayoutFlags(playerImg, AbsoluteLayoutFlags.None);
+                playerLayout.Children.Add(playerImg);
+                AbsoluteLayout.SetLayoutBounds(enemyImg, new Rect(400, 300, 50, 50));
+                AbsoluteLayout.SetLayoutFlags(enemyImg, AbsoluteLayoutFlags.None);
+                enemyLayout.Children.Add(enemyImg);
+                mapLayout.Children.Add(playerLayout);
+                mapLayout.Children.Add(enemyLayout);
+            };
+           
+            // Start game loop
+            //Device.StartTimer(TimeSpan.FromMilliseconds(16), GameLoop);
         }
     }
 }
