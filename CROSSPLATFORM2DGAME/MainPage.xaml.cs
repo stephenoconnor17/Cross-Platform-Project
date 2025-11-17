@@ -1,18 +1,22 @@
-﻿using Microsoft.Maui.Layouts;
+﻿|using Microsoft.Maui.Layouts;
 using System.Diagnostics;
 
 namespace CROSSPLATFORM2DGAME {
     public partial class MainPage : ContentPage {
-        Image playerImg;
-        Image enemyImg;
-
+        
+        //LAYOUT / VIEWS
         AbsoluteLayout gameLayout;
         AbsoluteLayout mapLayout;
 
         AbsoluteLayout statsLayout;
 
-        AbsoluteLayout playerLayout;
-        AbsoluteLayout enemyLayout;
+        //GAME OBJECTS
+        player myP;
+
+        //VARIABLES
+        public static double gameLayoutWidth;
+        public static double gameLayoutHeight;
+
 
 #if WINDOWS
         Microsoft.UI.Xaml.Window nativeWindow; // Windows-specific window for key input
@@ -22,19 +26,7 @@ namespace CROSSPLATFORM2DGAME {
             InitializeComponent();
         }
 
-        private void initializeImgObj() {
-            playerImg = new Image {
-                Source = "player.png",
-                WidthRequest = 50,
-                HeightRequest = 50
-            };
-            enemyImg = new Image {
-                Source = "player.png",
-                WidthRequest = 50,
-                HeightRequest = 50
-            };
-        }
-
+        bool onceOnAppearing = true;
         protected override void OnAppearing() {
 
             //to describe onappearing
@@ -48,11 +40,54 @@ namespace CROSSPLATFORM2DGAME {
             // Initialize layouts and images
 
             //This is the overaraching layout that contains all other layouts
+            if(onceOnAppearing)
+            {
+                setupGameLayout();
+                onceOnAppearing = false;
+
+                //we only place layouts to map layout here
+                mapLayout.SizeChanged += (s, e) => {
+
+                    myP = new player();
+                    // Center player layout in map layout
+                    gameLayout.Children.Add(myP.gameObjectLayout);
+                    
+                };
+            }
+            
+            //because of the width and height requests are only valid once the size is known
+            
+
+         
+            //below is the platform specific code for key listeners
+            //this is only for windows for now
+            //and a placeholder. 
+            //later on a centralised input manager will be created to handle inputs from all platforms
+#if WINDOWS
+            // Attach Windows key listener non-intrusively
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                nativeWindow = Application.Current.Windows[0].Handler.PlatformView as Microsoft.UI.Xaml.Window;
+                if (nativeWindow != null)
+                {
+                    var root = nativeWindow.Content as Microsoft.UI.Xaml.FrameworkElement;
+                    if (root != null)
+                    {
+                        root.KeyDown += Root_KeyDown;
+                        root.KeyUp += Root_KeyUp;
+                        Debug.WriteLine("✅ Windows key listener attached");
+                    }
+                }
+            });
+#endif
+        }
+        public void setupGameLayout()
+        {
+
             gameLayout = new AbsoluteLayout {
                 WidthRequest = this.Width,
                 HeightRequest = this.Height,
                 BackgroundColor = Colors.Transparent
-
             };
 
             //this will hold the map background and enemies
@@ -83,94 +118,20 @@ namespace CROSSPLATFORM2DGAME {
             gameLayout.Children.Add(mapLayout);
 
             //this positions the stats layout to cover the entire game layout
-            AbsoluteLayout.SetLayoutBounds(statsLayout, new Rect(0,0, statsLayout.WidthRequest, statsLayout.HeightRequest));
+            AbsoluteLayout.SetLayoutBounds(statsLayout, new Rect(0, 0, statsLayout.WidthRequest, statsLayout.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(statsLayout, AbsoluteLayoutFlags.None);
 
             statsLayout.Children.Add(placeHolder);
             gameLayout.Children.Add(statsLayout);
 
-            //this.Padding = new Thickness(0,40,0,0);
-
             //this sets the content of the page to the game layout i.e the overarching layout
             Content = gameLayout;
 
-            mapLayout.SizeChanged += (s, e) => {
+            gameLayoutWidth = gameLayout.WidthRequest;
+            gameLayoutHeight = gameLayout.HeightRequest;
 
-                initializeImgObj();
-
-                // Create player layout and add player image
-                playerLayout = new AbsoluteLayout();
-                playerLayout.WidthRequest = 50;
-                playerLayout.HeightRequest = 50;
-                //enemyLayout = new AbsoluteLayout();
-
-                // Create enemy layout and add enemy image
-                enemyLayout = new AbsoluteLayout();
-                enemyLayout.WidthRequest = 50;
-                enemyLayout.HeightRequest = 50;
-
-                //This gets the values to center the images in their layouts
-                double playerCenterX = playerLayout.WidthRequest / 2 - playerImg.WidthRequest / 2;
-                double playerCenterY = playerLayout.HeightRequest / 2 - playerImg.HeightRequest / 2;
-
-                double enemyCenterX = enemyLayout.WidthRequest / 2 - enemyImg.WidthRequest / 2;
-                double enemyCenterY = enemyLayout.HeightRequest / 2 - enemyImg.HeightRequest / 2;
-
-                //this positions the player and enemy images in the center of their respective layouts
-                AbsoluteLayout.SetLayoutBounds(playerImg, new Rect(playerCenterX, playerCenterY, playerImg.WidthRequest, playerImg.HeightRequest));
-                AbsoluteLayout.SetLayoutFlags(playerImg, AbsoluteLayoutFlags.None);
-                playerLayout.Children.Add(playerImg);
-
-                AbsoluteLayout.SetLayoutBounds(enemyImg, new Rect(enemyCenterX, enemyCenterY, enemyImg.WidthRequest, enemyImg.HeightRequest));
-                AbsoluteLayout.SetLayoutFlags(enemyImg, AbsoluteLayoutFlags.None);
-                enemyLayout.Children.Add(enemyImg);
-
-                // Center player layout in map layout
-                AbsoluteLayout.SetLayoutBounds(playerLayout, new Rect(
-                    gameLayout.Width / 2 - playerLayout.WidthRequest / 2,
-                    gameLayout.Height / 2 - playerLayout.HeightRequest / 2,
-                    playerLayout.WidthRequest,
-                    playerLayout.HeightRequest));
-
-                // Position enemy layout at a fixed point in map layout
-                AbsoluteLayout.SetLayoutBounds(enemyLayout, new Rect(
-                    200,
-                    200,
-                    enemyLayout.WidthRequest,
-                    enemyLayout.HeightRequest));
-
-                // Add layouts to map layout
-                mapLayout.Children.Add(enemyLayout);
-                gameLayout.Children.Add(playerLayout);
-            };
-
-
-
-            // Start game loop
-            //Device.StartTimer(TimeSpan.FromMilliseconds(16), GameLoop);
-
-            //below is the platform specific code for key listeners
-            //this is only for windows for now
-            //and a placeholder. 
-            //later on a centralised input manager will be created to handle inputs from all platforms
-#if WINDOWS
-            // Attach Windows key listener non-intrusively
-            Device.BeginInvokeOnMainThread(() =>
-            {
-                nativeWindow = Application.Current.Windows[0].Handler.PlatformView as Microsoft.UI.Xaml.Window;
-                if (nativeWindow != null)
-                {
-                    var root = nativeWindow.Content as Microsoft.UI.Xaml.FrameworkElement;
-                    if (root != null)
-                    {
-                        root.KeyDown += Root_KeyDown;
-                        root.KeyUp += Root_KeyUp;
-                        Debug.WriteLine("✅ Windows key listener attached");
-                    }
-                }
-            });
-#endif
         }
+
 
 #if WINDOWS
         // Handle key down events
