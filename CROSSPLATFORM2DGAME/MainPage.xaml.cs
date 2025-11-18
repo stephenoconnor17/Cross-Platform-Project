@@ -1,4 +1,4 @@
-﻿|using Microsoft.Maui.Layouts;
+﻿using Microsoft.Maui.Layouts;
 using System.Diagnostics;
 
 namespace CROSSPLATFORM2DGAME {
@@ -27,7 +27,7 @@ namespace CROSSPLATFORM2DGAME {
         }
 
         bool onceOnAppearing = true;
-        protected override void OnAppearing() {
+        protected override async void OnAppearing() {
 
             //to describe onappearing
             // This method is called when the page appears
@@ -42,16 +42,32 @@ namespace CROSSPLATFORM2DGAME {
             //This is the overaraching layout that contains all other layouts
             if(onceOnAppearing)
             {
-                setupGameLayout();
+                SetupGameLayout();
                 onceOnAppearing = false;
-
                 //we only place layouts to map layout here
                 mapLayout.SizeChanged += (s, e) => {
 
-                    myP = new player();
+                    //myP = new player();
                     // Center player layout in map layout
-                    gameLayout.Children.Add(myP.gameObjectLayout);
+                    //gameLayout.Children.Add(myP.gameObjectLayout);
                     
+                };
+
+                gameLayout.SizeChanged += (s, e) =>
+                {
+                    // Only create player once
+                    if (myP == null) {
+                        myP = new player();
+
+                        double centerX = gameLayout.Width / 2 - myP.layoutWidth / 2;
+                        double centerY = gameLayout.Height / 2 - myP.layoutHeight / 2;
+
+                        myP.setLayoutPosition(centerX, centerY, myP.layoutWidth, myP.layoutHeight);
+
+                        gameLayout.Children.Add(myP.gameObjectLayout);
+
+                        DisplayAlert("Debug", $"gameLayout measured size: {gameLayout.Width} x {gameLayout.Height}", "OK");
+                    }
                 };
             }
             
@@ -81,7 +97,7 @@ namespace CROSSPLATFORM2DGAME {
             });
 #endif
         }
-        public void setupGameLayout()
+        public void SetupGameLayout()
         {
 
             gameLayout = new AbsoluteLayout {
@@ -130,6 +146,7 @@ namespace CROSSPLATFORM2DGAME {
             gameLayoutWidth = gameLayout.WidthRequest;
             gameLayoutHeight = gameLayout.HeightRequest;
 
+            //return Task.CompletedTask;
         }
 
 

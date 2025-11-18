@@ -20,11 +20,18 @@ namespace CROSSPLATFORM2DGAME
             double playerCenterY = layoutHeight / 2 - imageHeight / 2;
 
             //AbsoluteLayout.SetLayoutBounds(gameObjectImage, new Rect(playerCenterX, playerCenterY, gameObjectImage.WidthRequest, gameObjectImage.HeightRequest));
+           /* setLayoutPosition(MainPage.gameLayoutWidth / 2 - layoutWidth / 2,
+                        MainPage.gameLayoutHeight / 2 - layoutHeight / 2,
+                        layoutWidth,
+                        layoutHeight);*/
+            setImagePosition(playerCenterX, playerCenterY, imageWidth, imageHeight);
+            /*
             setLayoutPosition(MainPage.gameLayoutWidth / 2 - layoutWidth / 2,
                         MainPage.gameLayoutHeight / 2 - layoutHeight / 2,
                         layoutWidth,
                         layoutHeight);
-            setImagePosition(playerCenterX, playerCenterY, imageWidth, imageHeight);
+            */
+            setLayoutPosition(0.5, 0.5, layoutWidth, layoutHeight);
 
 
         }
