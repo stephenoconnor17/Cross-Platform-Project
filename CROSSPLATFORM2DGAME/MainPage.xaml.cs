@@ -14,6 +14,7 @@ namespace CROSSPLATFORM2DGAME {
         //LAYOUT / VIEWS
         AbsoluteLayout gameLayout;
         AbsoluteLayout mapLayout;
+        AbsoluteLayout rotateLayout;
 
         AbsoluteLayout statsLayout;
 
@@ -37,35 +38,38 @@ namespace CROSSPLATFORM2DGAME {
             gameTimer.Start();
         }
 
-        //GAME LOOP
-        double yp = 0;
-        double rp = 0;
+        private double xp = 0; // mapLayout X position
+        private double yp = 0; // mapLayout Y position
+        private double rp = 0; // rotation
+
         private void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
-            //UPDATE GAME STATE HERE
+            double speed = 2.0;
+            double rad = rp * Math.PI / 180.0;
+
+            double dx = speed * Math.Sin(rad);
+            double dy = speed * Math.Cos(rad);
+
             if (keyHandler.Up) {
-                yp += 2;
+                xp += dx;
+                yp += dy;   // forward movement
             }
-
             if (keyHandler.Down) {
-                yp -= 2;
+                xp -= dx;
+                yp -= dy;   // backward movement
             }
 
-            if (keyHandler.Left) {
-                rp += .5;
-            }
+            if (keyHandler.Left)
+                rp += 0.5;  // rotate left
+            if (keyHandler.Right)
+                rp -= 0.5;  // rotate right
 
-            if (keyHandler.Right) {
-                rp -= .5;
-            }
-
-            //UPDATE UI ON MAIN THREAD
             MainThread.BeginInvokeOnMainThread(() =>
             {
+                mapLayout.TranslationX = xp;
                 mapLayout.TranslationY = yp;
-                mapLayout.Rotation = rp;
+                rotateLayout.Rotation = rp;
             });
         }
-
         protected override void OnDisappearing() {
             base.OnDisappearing();
             gameTimer.Stop();
@@ -157,6 +161,12 @@ namespace CROSSPLATFORM2DGAME {
                 HeightRequest = 400
             };
 
+            rotateLayout = new AbsoluteLayout {
+                BackgroundColor = Colors.Transparent,
+                WidthRequest = gameLayout.WidthRequest,
+                HeightRequest = gameLayout.HeightRequest
+            };
+
             //this will hold the stats like health fuel time etc
             statsLayout = new AbsoluteLayout {
                 BackgroundColor = Colors.Transparent,
@@ -175,7 +185,11 @@ namespace CROSSPLATFORM2DGAME {
             AbsoluteLayout.SetLayoutBounds(mapLayout, new Rect(0.5, 0.5, mapLayout.WidthRequest, mapLayout.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(mapLayout, AbsoluteLayoutFlags.PositionProportional);
 
-            gameLayout.Children.Add(mapLayout);
+            AbsoluteLayout.SetLayoutBounds(rotateLayout, new Rect(0.5, 0.5, gameLayout.WidthRequest, gameLayout.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(rotateLayout, AbsoluteLayoutFlags.PositionProportional);
+
+            rotateLayout.Children.Add(mapLayout);
+            gameLayout.Children.Add(rotateLayout);
 
             //this positions the stats layout to cover the entire game layout
             AbsoluteLayout.SetLayoutBounds(statsLayout, new Rect(0, 0, statsLayout.WidthRequest, statsLayout.HeightRequest));
