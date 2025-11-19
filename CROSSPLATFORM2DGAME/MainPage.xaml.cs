@@ -1,9 +1,13 @@
 ﻿using Microsoft.Maui.Layouts;
 using System.Diagnostics;
+using System.Timers;
 
 namespace CROSSPLATFORM2DGAME {
     public partial class MainPage : ContentPage {
         
+        //GAME TIMER
+        System.Timers.Timer gameTimer;
+
         //LAYOUT / VIEWS
         AbsoluteLayout gameLayout;
         AbsoluteLayout mapLayout;
@@ -24,6 +28,26 @@ namespace CROSSPLATFORM2DGAME {
 
         public MainPage() {
             InitializeComponent();
+        }
+
+        public void setUpTimer() {
+            gameTimer =  new System.Timers.Timer(16);
+            gameTimer.Elapsed += GameTimer_Elapsed;
+            gameTimer.Start();
+        }
+
+        private void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
+            
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                mapLayout.TranslationY += 1.0;
+            });
+        }
+
+        protected override void OnDisappearing() {
+            base.OnDisappearing();
+            gameTimer.Stop();
         }
 
         bool onceOnAppearing = true;
@@ -55,18 +79,26 @@ namespace CROSSPLATFORM2DGAME {
 
                 gameLayout.SizeChanged += (s, e) =>
                 {
-                    // Only create player once
+                    //ONLY ASSIGN GAME LAYOUT WIDTH/HEIGHT IN HERE AS IT IS INVALID IN THE SETUP LAYOUT
                     if (myP == null) {
+
+                        gameLayoutWidth = gameLayout.Width;
+                        gameLayoutHeight = gameLayout.Height;
+
                         myP = new player();
 
+                        /*
                         double centerX = gameLayout.Width / 2 - myP.layoutWidth / 2;
                         double centerY = gameLayout.Height / 2 - myP.layoutHeight / 2;
 
                         myP.setLayoutPosition(centerX, centerY, myP.layoutWidth, myP.layoutHeight);
+                        */
 
                         gameLayout.Children.Add(myP.gameObjectLayout);
 
-                        DisplayAlert("Debug", $"gameLayout measured size: {gameLayout.Width} x {gameLayout.Height}", "OK");
+                        setUpTimer();
+
+                        //DisplayAlert("Debug", $"gameLayout measured size: {gameLayout.Width} x {gameLayout.Height}", "OK");
                     }
                 };
             }

@@ -25,13 +25,13 @@ namespace CROSSPLATFORM2DGAME
                         layoutWidth,
                         layoutHeight);*/
             setImagePosition(playerCenterX, playerCenterY, imageWidth, imageHeight);
-            /*
+            
             setLayoutPosition(MainPage.gameLayoutWidth / 2 - layoutWidth / 2,
                         MainPage.gameLayoutHeight / 2 - layoutHeight / 2,
                         layoutWidth,
                         layoutHeight);
-            */
-            setLayoutPosition(0.5, 0.5, layoutWidth, layoutHeight);
+            
+            //setLayoutPosition(0.5, 0.5, layoutWidth, layoutHeight);
 
 
         }
