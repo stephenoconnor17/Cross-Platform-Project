@@ -4,7 +4,10 @@ using System.Timers;
 
 namespace CROSSPLATFORM2DGAME {
     public partial class MainPage : ContentPage {
-        
+
+        //KEYHANDLER
+        KeyHandler keyHandler;
+
         //GAME TIMER
         System.Timers.Timer gameTimer;
 
@@ -21,27 +24,45 @@ namespace CROSSPLATFORM2DGAME {
         public static double gameLayoutWidth;
         public static double gameLayoutHeight;
 
-
-#if WINDOWS
-        Microsoft.UI.Xaml.Window nativeWindow; // Windows-specific window for key input
-#endif
-
         public MainPage() {
             InitializeComponent();
+            keyHandler = new KeyHandler();
+
         }
 
+        //SET UP GAME TIMER
         public void setUpTimer() {
             gameTimer =  new System.Timers.Timer(16);
             gameTimer.Elapsed += GameTimer_Elapsed;
             gameTimer.Start();
         }
 
+        //GAME LOOP
+        double yp = 0;
+        double rp = 0;
         private void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
-            
+            //UPDATE GAME STATE HERE
+            if (keyHandler.Up) {
+                yp += 2;
+            }
 
+            if (keyHandler.Down) {
+                yp -= 2;
+            }
+
+            if (keyHandler.Left) {
+                rp += .5;
+            }
+
+            if (keyHandler.Right) {
+                rp -= .5;
+            }
+
+            //UPDATE UI ON MAIN THREAD
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                mapLayout.TranslationY += 1.0;
+                mapLayout.TranslationY = yp;
+                mapLayout.Rotation = rp;
             });
         }
 
@@ -50,6 +71,7 @@ namespace CROSSPLATFORM2DGAME {
             gameTimer.Stop();
         }
 
+        //INITIAL SETUP BEFORE STARTING GAME LOOP
         bool onceOnAppearing = true;
         protected override async void OnAppearing() {
 
@@ -60,11 +82,17 @@ namespace CROSSPLATFORM2DGAME {
             // this is where we will set up the game elements and start the game loop for now
             // but a menu will be added later before the game loop starts
             base.OnAppearing();
+#if WINDOWS
+        if (this.Window != null)
+        {
+            KeyHook.Attach(this.Window, keyHandler);
+        }
+#endif
 
             // Initialize layouts and images
 
             //This is the overaraching layout that contains all other layouts
-            if(onceOnAppearing)
+            if (onceOnAppearing)
             {
                 SetupGameLayout();
                 onceOnAppearing = false;
@@ -111,23 +139,7 @@ namespace CROSSPLATFORM2DGAME {
             //this is only for windows for now
             //and a placeholder. 
             //later on a centralised input manager will be created to handle inputs from all platforms
-#if WINDOWS
-            // Attach Windows key listener non-intrusively
-            Device.BeginInvokeOnMainThread(() =>
-            {
-                nativeWindow = Application.Current.Windows[0].Handler.PlatformView as Microsoft.UI.Xaml.Window;
-                if (nativeWindow != null)
-                {
-                    var root = nativeWindow.Content as Microsoft.UI.Xaml.FrameworkElement;
-                    if (root != null)
-                    {
-                        root.KeyDown += Root_KeyDown;
-                        root.KeyUp += Root_KeyUp;
-                        Debug.WriteLine("✅ Windows key listener attached");
-                    }
-                }
-            });
-#endif
+
         }
         public void SetupGameLayout()
         {
@@ -182,43 +194,6 @@ namespace CROSSPLATFORM2DGAME {
         }
 
 
-#if WINDOWS
-        // Handle key down events
-        private void Root_KeyDown(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
-        {
-            Debug.WriteLine($"Key Down: {e.Key}");
 
-            switch (e.Key)
-            {
-                case Windows.System.VirtualKey.W:
-                    Debug.WriteLine("Move Up");
-                    mapLayout.TranslationY += 10;
-                    //playerLayout.TranslationY -= 10;
-                    break;
-                case Windows.System.VirtualKey.A:
-                    //playerLayout.Rotation -= 5;
-                    mapLayout.Rotation += 5;
-                    Debug.WriteLine("Move Left");
-                    break;
-                case Windows.System.VirtualKey.S:
-                    Debug.WriteLine("Move Down");
-                    mapLayout.TranslationY -= 10;
-                    //playerLayout.TranslationY += 10;
-                    break;
-                case Windows.System.VirtualKey.D:
-
-                    //playerLayout.Rotation += 5;
-                    mapLayout.Rotation -= 5;
-                    Debug.WriteLine("Move Right");
-                    break;
-            }
-        }
-
-        // Handle key up events
-        private void Root_KeyUp(object sender, Microsoft.UI.Xaml.Input.KeyRoutedEventArgs e)
-        {
-            Debug.WriteLine($"Key Up: {e.Key}");
-        }
-#endif
     }
 }
