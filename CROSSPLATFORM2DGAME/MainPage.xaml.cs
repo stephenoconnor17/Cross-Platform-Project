@@ -1,5 +1,7 @@
-﻿using Microsoft.Maui.Layouts;
+﻿using Microsoft.Maui.Controls.Shapes;
+using Microsoft.Maui.Layouts;
 using System.Diagnostics;
+using System.Numerics;
 using System.Timers;
 
 namespace CROSSPLATFORM2DGAME {
@@ -17,6 +19,9 @@ namespace CROSSPLATFORM2DGAME {
         AbsoluteLayout rotateLayout;
 
         AbsoluteLayout statsLayout;
+        Label placeHolder;
+        Label OBBPlaceHolder;
+
 
         //GAME OBJECTS
         player myP;
@@ -41,35 +46,92 @@ namespace CROSSPLATFORM2DGAME {
         private double xp = 0; // mapLayout X position
         private double yp = 0; // mapLayout Y position
         private double rp = 0; // rotation
+        double speed = 0.0;
+        double acceleration = 0.0;
+        double maxSpeed = 4.0;
+        double accelRate = 0.05;      // how fast the car accelerates
+        double brakeRate = 0.0375;     // stronger deceleration
+        double friction = 0.05;      // slows car when no input
+        double turnSpeed = 1.0;      // base turn speed
+        double boostMultiplier = 1.0; // speed boost multiplier
+        double boostMaxSpeed = 7.0;
 
-        private void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
-            double speed = 2.0;
+        public void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
             double rad = rp * Math.PI / 180.0;
 
+            // --- INPUT → ACCELERATION ------------------
+            
+
+
+            if (keyHandler.Up) {
+                if (keyHandler.Space) {
+                    boostMultiplier = 2.0;
+                } else if (!keyHandler.Space) {
+                    boostMultiplier = 1.0;
+                }
+                acceleration = accelRate * boostMultiplier;
+               
+                if (keyHandler.Left)
+                    rp += turnSpeed * (speed / maxSpeed);  // proportional turning
+                if (keyHandler.Right)
+                    rp -= turnSpeed * (speed / maxSpeed);
+            } else if (keyHandler.Down) {
+                acceleration = -brakeRate;
+                if (keyHandler.Left)
+                    rp += turnSpeed * (speed / maxSpeed);  // proportional turning
+                if (keyHandler.Right)
+                    rp -= turnSpeed * (speed / maxSpeed);
+            } else
+                acceleration = 0;
+
+            // --- APPLY ACCELERATION ---------------------
+            speed += acceleration;
+
+            // --- APPLY FRICTION WHEN NO KEYS PRESSED ----
+            if (!keyHandler.Up && !keyHandler.Down) {
+                if (speed > 0)
+                    speed -= friction;
+                if (speed < 0)
+                    speed += friction;
+
+                // avoid endless tiny motion
+                if (Math.Abs(speed) < 0.05)
+                    speed = 0;
+            }
+
+            // --- SPEED LIMIT ----------------------------
+            if(keyHandler.Space && keyHandler.Up)
+                speed = Math.Clamp(speed, -boostMaxSpeed, boostMaxSpeed);
+            else
+                speed = Math.Clamp(speed, -maxSpeed, maxSpeed);
+
+
+            // --- MOVE CAR --------------------------------
+           
             double dx = speed * Math.Sin(rad);
             double dy = speed * Math.Cos(rad);
 
-            if (keyHandler.Up) {
-                xp += dx;
-                yp += dy;   // forward movement
-            }
-            if (keyHandler.Down) {
-                xp -= dx;
-                yp -= dy;   // backward movement
-            }
+            xp += dx;
+            yp += dy;
 
-            if (keyHandler.Left)
-                rp += 0.5;  // rotate left
-            if (keyHandler.Right)
-                rp -= 0.5;  // rotate right
+            //OBB DEBUGGING
+
+
+            //OBB UPDATES
+            myP.objectOBB.Update(new Vector2((float)xp,(float)yp), rp * Math.PI / 180.0);
 
             MainThread.BeginInvokeOnMainThread(() =>
             {
+                placeHolder.Text = $"Speed: {speed:F2} Accel: {acceleration:F2} Boost: {boostMultiplier:F1}";
+                OBBPlaceHolder.Text = $"OBB Center: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
+                    $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
+                    $"Rotation: {rp:F2}°";
                 mapLayout.TranslationX = xp;
                 mapLayout.TranslationY = yp;
                 rotateLayout.Rotation = rp;
             });
         }
+
         protected override void OnDisappearing() {
             base.OnDisappearing();
             gameTimer.Stop();
@@ -174,8 +236,13 @@ namespace CROSSPLATFORM2DGAME {
                 HeightRequest = gameLayout.HeightRequest
             };
 
+            OBBPlaceHolder = new Label {
+                Text = "OBB Placeholder",
+                BackgroundColor = Colors.Transparent
+            };
+
             //place holder label for stats layout
-            Label placeHolder = new Label {
+            placeHolder = new Label {
                 Text = "Stats Placeholder",
                 BackgroundColor = Colors.Transparent
 
@@ -195,6 +262,10 @@ namespace CROSSPLATFORM2DGAME {
             AbsoluteLayout.SetLayoutBounds(statsLayout, new Rect(0, 0, statsLayout.WidthRequest, statsLayout.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(statsLayout, AbsoluteLayoutFlags.None);
 
+            AbsoluteLayout.SetLayoutBounds(OBBPlaceHolder, new Rect(0, 25, statsLayout.WidthRequest, statsLayout.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(OBBPlaceHolder, AbsoluteLayoutFlags.None);
+
+            statsLayout.Children.Add(OBBPlaceHolder);
             statsLayout.Children.Add(placeHolder);
             gameLayout.Children.Add(statsLayout);
 

@@ -30,9 +30,6 @@ namespace CROSSPLATFORM2DGAME
                         MainPage.gameLayoutHeight / 2 - layoutHeight / 2,
                         layoutWidth,
                         layoutHeight);
-            
-            //setLayoutPosition(0.5, 0.5, layoutWidth, layoutHeight);
-
 
         }
 
