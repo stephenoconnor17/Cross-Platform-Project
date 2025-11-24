@@ -31,7 +31,7 @@ namespace CROSSPLATFORM2DGAME
         public void setLayoutPosition(double x, double y, double width, double height) {
             AbsoluteLayout.SetLayoutBounds(gameObjectLayout, new Rect(x,y,width,height));
             //the x and y of the layout is relative to the game world so we pass them into its globalCoordinateObject
-            //objectOBB = new OBB(new Vector2((float)x + (float)(width/2), (float)y+(float)height/2), width, height, 0); not valid as playerlayout is based on gameLayout, not mapLayout. must be mapLayout
+            //objectOBB = new OBB(new Vector2((float)x + (float)(width/2), (float)y+(float)height/2), width, height, 0); //not valid as playerlayout is based on gameLayout, not mapLayout. must be mapLayout
             //AbsoluteLayout.SetLayoutFlags(gameObjectLayout, AbsoluteLayoutFlags.None);
         }
         public void setUpOBB(Vector2 center, float width, float height, double rotation) {
