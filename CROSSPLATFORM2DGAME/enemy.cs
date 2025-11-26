@@ -11,8 +11,8 @@ namespace CROSSPLATFORM2DGAME {
         public float enemyOBBCenterX;
         public float enemyOBBCenterY;
         public enemy() {
-            createLayout(50, 50);
-            createImage("player.png", 50, 50);
+            createLayout(40, 77);
+            createImage("car31.png", 40, 77);
 
             double enemyCenterX = layoutWidth / 2 - imageWidth / 2;
             double enemyCenterY = layoutHeight / 2 - imageHeight / 2;
@@ -22,7 +22,8 @@ namespace CROSSPLATFORM2DGAME {
                          MainPage.gameLayoutHeight / 2 - layoutHeight / 2,
                          layoutWidth,
                          layoutHeight);*/
-            setImagePosition(enemyCenterX, enemyCenterY, imageWidth, imageHeight);
+            //setImagePosition(enemyCenterX, enemyCenterY, imageWidth, imageHeight);
+            setImagePosition(0, 0, imageWidth, imageHeight);
 
             //temp for testing.
             globalX = 100;

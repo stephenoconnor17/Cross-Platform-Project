@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Numerics;
 using System.Timers;
 
+
 namespace CROSSPLATFORM2DGAME {
     public partial class MainPage : ContentPage {
 
@@ -46,7 +47,7 @@ namespace CROSSPLATFORM2DGAME {
             gameTimer.Elapsed += GameTimer_Elapsed;
             gameTimer.Start();
         }
-
+        
         private double xp = 0; // mapLayout X position
         private double yp = 0; // mapLayout Y position
         private double rp = 0; // rotation
@@ -60,13 +61,11 @@ namespace CROSSPLATFORM2DGAME {
         double boostMultiplier = 1.0; // speed boost multiplier
         double boostMaxSpeed = 7.0;
         int backFrame = 0;
+
         public void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
             double rad = rp * Math.PI / 180.0;
 
             // --- INPUT → ACCELERATION ------------------
-            
-
-
             if (keyHandler.Up) {
                 if (keyHandler.Space) {
                     boostMultiplier = 2.0;
@@ -74,7 +73,7 @@ namespace CROSSPLATFORM2DGAME {
                     boostMultiplier = 1.0;
                 }
                 acceleration = accelRate * boostMultiplier;
-               
+
                 if (keyHandler.Left)
                     rp += turnSpeed * (speed / maxSpeed);  // proportional turning
                 if (keyHandler.Right)
@@ -104,71 +103,59 @@ namespace CROSSPLATFORM2DGAME {
             }
 
             // --- SPEED LIMIT ----------------------------
-            if(keyHandler.Space && keyHandler.Up)
+            if (keyHandler.Space && keyHandler.Up)
                 speed = Math.Clamp(speed, -boostMaxSpeed, boostMaxSpeed);
             else
                 speed = Math.Clamp(speed, -maxSpeed, maxSpeed);
 
-
             // --- MOVE CAR --------------------------------
-           
+            double dx = speed * Math.Sin(rad);
+            double dy = speed * Math.Cos(rad);
+
             
-
-
-            //OBB DEBUGGING
-
-
             //OBB UPDATES
             myP.objectOBB.Update(new Vector2(playerX - (float)xp, playerY - (float)yp), rp * Math.PI / 180.0);
-            enemyTest.objectOBB.Update(new Vector2(enemyTest.enemyOBBCenterX, enemyTest.enemyOBBCenterY), -rp * Math.PI / 180.0);
+            enemyTest.objectOBB.Update(new Vector2(enemyTest.enemyOBBCenterX, enemyTest.enemyOBBCenterY), 0);
 
             bool collision = false;
             for (int i = OBBHandler.movingOBBs.Count - 1; i >= 0; i--) {
-                if (myP.objectOBB.Intersects(OBBHandler.movingOBBs[i])){
+                if (myP.objectOBB.Intersects(OBBHandler.movingOBBs[i])) {
                     collision = true;
                     backFrame = 60;
                     break;
                 }
             }
-            double dx = speed * Math.Sin(rad);
-            double dy = speed * Math.Cos(rad);
 
-            if (backFrame > 0) {
-                
+            if (collision) {
+                if (backFrame > 0) {
+                    acceleration -= brakeRate * 50;
+                    speed += acceleration;
+                    xp += dx;
+                    yp += dy;
+
+                    backFrame--;
+                }
+
             } else if (!collision) {
-                
-
                 xp += dx;
                 yp += dy;
-                /*
-                double enemyWorldX = enemyTest.globalX - xp;
-                double enemyWorldY = enemyTest.globalY - yp;
-
-                enemyTest.objectOBB.Update(
-                    new Vector2((float)enemyWorldX, (float)enemyWorldY),
-                    0
-                );
-                */
-            } else {
-
             }
 
-                //myP.objectOBB.Update(new Vector2(playerX + (float)xp, playerY + (float)yp), rp * Math.PI / 180.0);
-
-                MainThread.BeginInvokeOnMainThread(() => {
-                    placeHolder.Text = $"Speed: {speed:F2} Accel: {acceleration:F2} Boost: {boostMultiplier:F1}";
-                    OBBPlaceHolder.Text = $"OBB Center: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
-                        $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
-                        $"Rotation: {rp:F2}°";
-                    mapLayout.TranslationX = xp;
-                    mapLayout.TranslationY = yp;
-                    rotateLayout.Rotation = rp;
-                    OBBPlaceHolder2.Text = $"OBB Center: ({enemyTest.objectOBB.Center.X:F2}, {enemyTest.objectOBB.Center.Y:F2})\n" +
-                        $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
-                        $"Rotation: {rp:F2}°\nCollision: {collision}" ;
-                });
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                placeHolder.Text = $"Speed: {speed:F2} Accel: {acceleration:F2} Boost: {boostMultiplier:F1}";
+                OBBPlaceHolder.Text = $"OBB Center: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
+                    $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
+                    $"Rotation: {rp:F2}°";
+                mapLayout.TranslationX = xp;
+                mapLayout.TranslationY = yp;
+                rotateLayout.Rotation = rp;
+                OBBPlaceHolder2.Text = $"OBB Center: ({enemyTest.objectOBB.Center.X:F2}, {enemyTest.objectOBB.Center.Y:F2})\n" +
+                    $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
+                    $"Rotation: {rp:F2}°\nCollision: {collision}";
+            });
         }
-
+        
         protected override void OnDisappearing() {
             base.OnDisappearing();
             gameTimer.Stop();

@@ -13,8 +13,8 @@ namespace CROSSPLATFORM2DGAME
         
         public player() {
             //create the image for the player
-            createLayout(50, 50);
-            createImage("player.png", 50, 50);
+            createLayout(40, 77);
+            createImage("car31.png", 40, 77);
             
             double playerCenterX = layoutWidth / 2 - imageWidth / 2;
             double playerCenterY = layoutHeight / 2 - imageHeight / 2;
@@ -24,8 +24,9 @@ namespace CROSSPLATFORM2DGAME
                         MainPage.gameLayoutHeight / 2 - layoutHeight / 2,
                         layoutWidth,
                         layoutHeight);*/
-            setImagePosition(playerCenterX, playerCenterY, imageWidth, imageHeight);
-            
+            //setImagePosition(playerCenterX, playerCenterY, imageWidth, imageHeight);
+            setImagePosition(0,0,imageWidth, imageHeight); 
+
             setLayoutPosition(MainPage.gameLayoutWidth / 2 - layoutWidth / 2,
                         MainPage.gameLayoutHeight / 2 - layoutHeight / 2,
                         layoutWidth,
