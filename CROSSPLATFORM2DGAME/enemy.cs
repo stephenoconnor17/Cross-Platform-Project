@@ -36,8 +36,9 @@ namespace CROSSPLATFORM2DGAME {
             enemyOBBCenterX = (float)globalX + (float)layoutWidth / 2;
             enemyOBBCenterY = (float)globalY + (float)layoutHeight / 2;
 
-            setUpOBB(new Vector2(enemyOBBCenterX, enemyOBBCenterY),(float)layoutWidth - 6,(float)layoutHeight - 6,0); //-6 to take away some of the empty space around the OBB, only for enemies;
-            OBBHandler.movingOBBs.Add(this.objectOBB);
+            setUpOBB(new Vector2(enemyOBBCenterX, enemyOBBCenterY),(float)layoutWidth - 8,(float)layoutHeight - 7,0); //-8/-7 to take away some of the empty space around the OBB, only for enemies;
+            //setUpOBB(new Vector2(enemyOBBCenterX, enemyOBBCenterY), 32,, 0);
+            OBBHandler.movingOBBs.Add(this.objectOBB);//IT MOVE SO MOVING OBB LIST
         }
     }
 }

@@ -68,16 +68,7 @@ using System.Numerics; // For Vector2
                 return true; // Collision detected
             }
 
-        // Get the 2 normalized axes of this OBB (edge normals)
-        /*
-        private Vector2[] GetAxes() {
-            Vector2[] axes = new Vector2[2];
-            axes[0] = Vector2.Normalize(Corners[1] - Corners[0]); // Top edge
-            axes[0] = new Vector2(-axes[0].Y, axes[0].X);         // perpendicular
-            axes[1] = Vector2.Normalize(Corners[1] - Corners[2]); // Right edge
-            axes[1] = new Vector2(-axes[1].Y, axes[1].X);         // perpendicular
-            return axes;
-        }*/
+        // Get the 2 normalized axes of this OBB (edge normals)    
         public Vector2[] GetAxes() {
             Vector2[] axes = new Vector2[2];
 
@@ -91,45 +82,8 @@ using System.Numerics; // For Vector2
 
             return axes;
         }
-
-        public Vector2 GetMTV(OBB obstacle) {
-            Vector2 mtvAxis = new Vector2();
-            float minOverlap = float.MaxValue;
-
-            Vector2[] axes = this.GetAxes().Concat(obstacle.GetAxes()).ToArray();
-
-            foreach (var axis in axes) {
-                void Project(OBB obb, Vector2 ax, out float min, out float max) {
-                    min = max = Vector2.Dot(obb.Corners[0], ax);
-                    for (int i = 1; i < 4; i++) {
-                        float p = Vector2.Dot(obb.Corners[i], ax);
-                        if (p < min) min = p;
-                        if (p > max) max = p;
-                    }
-                }
-
-                Project(this, axis, out float minA, out float maxA);
-                Project(obstacle, axis, out float minB, out float maxB);
-
-                float overlap = Math.Min(maxA, maxB) - Math.Max(minA, minB);
-                if (overlap <= 0)
-                    return Vector2.Zero; // No collision
-
-                if (overlap < minOverlap) {
-                    minOverlap = overlap;
-                    mtvAxis = axis;
-                }
-            }
-
-            // Ensure MTV points away from moving object
-            Vector2 direction = this.Center - obstacle.Center;
-            if (Vector2.Dot(direction, mtvAxis) < 0)
-                mtvAxis = -mtvAxis;
-
-            return mtvAxis * minOverlap;
-        }
-
-
+        
+      
 
         // Project corners onto axis and check overlap
         private bool OverlapOnAxis(OBB a, OBB b, Vector2 axis) {

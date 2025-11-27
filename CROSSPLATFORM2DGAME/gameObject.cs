@@ -13,9 +13,6 @@ namespace CROSSPLATFORM2DGAME
         //we treat the Image as the visual representation of the game object
         //and the Layout as the container / positioning element
 
-
-        //formula for making a game object
-        //
         public AbsoluteLayout gameObjectLayout { get; set; }
         public Image gameObjectImage { get; set; }
 
@@ -29,8 +26,8 @@ namespace CROSSPLATFORM2DGAME
         public double imageWidth { get; set; }
         public double imageHeight { get; set; }
 
-        //method to set where it will be on the map.
-        //FORMULA
+        //FORMULA for making a game object
+        
         //createLayout(width, height);
         //createImage(imageSource, width, height);
         //setImagePosition(x, y, width, height); //x and y relative to layout
@@ -44,10 +41,13 @@ namespace CROSSPLATFORM2DGAME
             //objectOBB = new OBB(new Vector2((float)x + (float)(width/2), (float)y+(float)height/2), width, height, 0); //not valid as playerlayout is based on gameLayout, not mapLayout. must be mapLayout
             //AbsoluteLayout.SetLayoutFlags(gameObjectLayout, AbsoluteLayoutFlags.None);
         }
+
+        //use for moving objects like enemies - eventually to be diseccted into different sections on map. 
         public void setUpOBB(Vector2 center, float width, float height, double rotation) {
             objectOBB = new OBB(center, width, height, rotation);
         }
 
+        //use for static objects like fuel cans, coins, etc.
         public void setUpOBB(Vector2 center, float width, float height, double rotation, string objectType) {
             objectOBB = new OBB(center, width, height, rotation);
             objectOBB.objectType = objectType;

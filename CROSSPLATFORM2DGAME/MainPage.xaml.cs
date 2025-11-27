@@ -51,7 +51,8 @@ namespace CROSSPLATFORM2DGAME {
             gameTimer.Elapsed += GameTimer_Elapsed;
             gameTimer.Start();
         }
-        
+
+        //GAME LOOP VARIABLES
         private double xp = 0; // mapLayout X position
         private double yp = 0; // mapLayout Y position
         private double rp = 0; // rotation
@@ -62,23 +63,25 @@ namespace CROSSPLATFORM2DGAME {
         double brakeRate = 0.0375;     // stronger deceleration
         double friction = 0.05;      // slows car when no input
         double turnSpeed = 1.0;      // base turn speed
-        double boostMultiplier = 1.0; // speed boost multiplier
+        double boostMultiplier = 1.0; // speed boost multiplier (SPEED IS * BOOST SO BOOST MUST BE 1.0 AT MINIMUM)
         double boostMaxSpeed = 7.0;
         int backFrame = 0;
 
         public void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
-            double rad = rp * Math.PI / 180.0;
+            double rad = rp * Math.PI / 180.0; // convert rotation to radians
 
             // --- INPUT → ACCELERATION ------------------
-            if (myP.fuel > 0) {
+            if (myP.fuel > 0) { //only allow drive if got fuel
                 if (keyHandler.Up) {
                     if (keyHandler.Space) {
-                        boostMultiplier = 2.0;
+                        boostMultiplier = 2.0; // GIVE JUICE
                     } else if (!keyHandler.Space) {
                         boostMultiplier = 1.0;
                     }
                     acceleration = accelRate * boostMultiplier;
 
+                    //Left and right steering only checked for while moving forward or backward
+                    //because cars dont go literally sideways
                     if (keyHandler.Left)
                         rp += turnSpeed * (speed / maxSpeed);  // proportional turning
                     if (keyHandler.Right)
@@ -125,24 +128,35 @@ namespace CROSSPLATFORM2DGAME {
             double dx = speed * Math.Sin(rad);
             double dy = speed * Math.Cos(rad);
 
-            // OBB UPDATES
-            myP.objectOBB.Update(new Vector2(playerX - (float)xp, playerY - (float)yp), rp * Math.PI / 180.0);
-            enemyTest.objectOBB.Update(new Vector2(enemyTest.enemyOBBCenterX, enemyTest.enemyOBBCenterY), 0);
+            //UPDATES ENEMIES
+            /*
+             
+                blah blah where
+            the enemy decides how to kill the player
 
+             */
 
             bool collision = false;
+            //STATIC COLLISION DETECTION
             for (int i = OBBHandler.staticOBBs.Count - 1; i >= 0; i--) {
                 if (myP.objectOBB.Intersects(OBBHandler.staticOBBs[i])) {
-                    if(OBBHandler.staticOBBs[i].objectType == "fuel") {
+
+                    //FUEL PICKUP DETECTION
+                    if (OBBHandler.staticOBBs[i].objectType == "fuel") {
                         myP.addFuel();
                     }
+                    //LOOT PICKUP DETECTION
 
-                    OBBHandler.staticOBBs.RemoveAt(i);//can remove here as its a logic list
+
+
+                    //GENERAL COLLISION RESPONSE
+                    OBBHandler.staticOBBs.RemoveAt(i);//can remove here as its a logical list
                     toRemove.Add(fuelTest);//add to remove list to remove in UI Thread.
 
                 }
             }
 
+            //MOVING COLLISION DETECTION
             for (int i = OBBHandler.movingOBBs.Count - 1; i >= 0; i--) {
                 if (myP.objectOBB.Intersects(OBBHandler.movingOBBs[i])) {
                     collision = true;
@@ -152,38 +166,51 @@ namespace CROSSPLATFORM2DGAME {
             }
             if (collision) {
                 if (speed > 0) {
-                    speed = -speed;
+                    speed = -speed; //invert speed on collision - sort of a bounce back effect
+                    dx = speed * Math.Sin(rad); // reapply dx dy with new speed
+                    dy = speed * Math.Cos(rad);
+                    //bounce back is as good as it gets. I dont want to overcomplicate it. It hurts to.
                 }
-                
+
                 if (backFrame > 0) { // a bit of a lopsided collision response but basically if backframe is over 0, a collision has been called.
-                    backFrame--;
-                    
+                    backFrame--; // decrement backframe until 0. backframe is > 0 = 1 second of collision response given
+                                //  60 fps  
+
                     xp += dx;
                     yp += dy;
                 }
             } else if (!collision) {
                 xp += dx;
                 yp += dy;
-            } else {
-                // Collision happened, but no extra handling (just stops movement)
             }
 
-            
+            // OBB UPDATES
+            myP.objectOBB.Update(new Vector2(playerX - (float)xp, playerY - (float)yp), rp * Math.PI / 180.0);
+            //enemy is rotated -rp to keep it aligned with the map layout rotation
+            enemyTest.objectOBB.Update(new Vector2(enemyTest.enemyOBBCenterX, enemyTest.enemyOBBCenterY), -rp * Math.PI / 180.0);
 
+            //UI UPDATES
+            //SINCE GameTimer_Elapsed IS A BACKGROUND THREAD WE MUST INVOKE ON MAIN THREAD TO UPDATE UI ELEMENTS
             MainThread.BeginInvokeOnMainThread(() =>
             {
+                //TEST OUTPUTS
                 placeHolder.Text = $"Speed: {speed:F2} Accel: {acceleration:F2} Boost: {boostMultiplier:F1} Fuel {myP.fuel}";
                 OBBPlaceHolder.Text = $"OBB Center: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
                     $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
                     $"Rotation: {rp:F2}°";
-                mapLayout.TranslationX = xp;
-                mapLayout.TranslationY = yp;
-                rotateLayout.Rotation = rp;
+
+                
                 OBBPlaceHolder2.Text = $"OBB Center: ({enemyTest.objectOBB.Center.X:F2}, {enemyTest.objectOBB.Center.Y:F2})\n" +
                     $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
                     $"Rotation: {rp:F2}°\nCollision: {collision}";
 
-                if(toRemove.Count > 0) {
+                //ACTUAL LAYOUT UPDATES
+                mapLayout.TranslationX = xp;
+                mapLayout.TranslationY = yp;
+                rotateLayout.Rotation = rp;
+
+                //rather clear what this does.
+                if (toRemove.Count > 0) {
                     for(int i = 0; i < toRemove.Count; i++) {
                         mapLayout.Children.Remove(toRemove[i].gameObjectLayout);
                     }
@@ -191,22 +218,20 @@ namespace CROSSPLATFORM2DGAME {
             });
         }
 
-
         protected override void OnDisappearing() {
             base.OnDisappearing();
             gameTimer.Stop();
         }
 
         //INITIAL SETUP BEFORE STARTING GAME LOOP
-        bool onceOnAppearing = true;
+        bool onceOnAppearing = true; // because OnAppearing can be called many times, we only want to call it once!
         protected override async void OnAppearing() {
 
-            //to describe onappearing
-            // This method is called when the page appears
-            // It creates the mapLayout and then adds the playerLayout to it
-            // It also initializes the player and enemy images but only adds the player image to the layout for now
-            // this is where we will set up the game elements and start the game loop for now
-            // but a menu will be added later before the game loop starts
+            //OnAppearing is being treated as the initial setup function for the game
+            //Because the values we use to set up the layouts are invalid in the constructor
+            //to double ensure we are getting values
+            //we use sizeChanged events on the layouts to double triple ensure we have valid width/height values before using them.
+
             base.OnAppearing();
 #if WINDOWS
         if (this.Window != null)
@@ -225,9 +250,6 @@ namespace CROSSPLATFORM2DGAME {
                 //we only place layouts to map layout here
                 mapLayout.SizeChanged += (s, e) => {
 
-                    //myP = new player();
-                    // Center player layout in map layout
-                    //gameLayout.Children.Add(myP.gameObjectLayout);
                     playerX = (float)(mapLayout.Width / 2);
                     playerY = (float)(mapLayout.Height / 2);
 
@@ -241,22 +263,20 @@ namespace CROSSPLATFORM2DGAME {
                         gameLayoutWidth = gameLayout.Width;
                         gameLayoutHeight = gameLayout.Height;
 
+                        //CREATE GAME OBJECTS HERE AS NOW THE MAPLAYOUT IS PROPERLY SET UP AND WE HAVE VALID WIDTH/HEIGHT VALUES
                         myP = new player();
                         enemyTest = new enemy();
                         fuelTest = new fuelObject();
-                        /*
-                        double centerX = gameLayout.Width / 2 - myP.layoutWidth / 2;
-                        double centerY = gameLayout.Height / 2 - myP.layoutHeight / 2;
 
-                        myP.setLayoutPosition(centerX, centerY, myP.layoutWidth, myP.layoutHeight);
-                        */
+                        //ADD GAME OBJECTS TO LAYOUTS
+                        gameLayout.Children.Add(myP.gameObjectLayout);// this is unique. the rest should be added to mapLayout
 
-
-                        gameLayout.Children.Add(myP.gameObjectLayout);
                         mapLayout.Children.Add(enemyTest.gameObjectLayout);
                         mapLayout.Children.Add(fuelTest.gameObjectLayout);
 
-                        myP.setUpOBB(new Vector2(playerX, playerY), (float)myP.layoutWidth - 6, (float)myP.layoutHeight - 6, 0);
+                        //We set this up here the center of mapLayout is now valid!
+                        myP.setUpOBB(new Vector2(playerX, playerY), (float)myP.imageWidth - 8, (float)myP.imageHeight - 7, 0);
+                        //myP.setUpOBB(new Vector2(playerX, playerY),32, 70, 0);
                         setUpTimer();
 
 
@@ -266,16 +286,10 @@ namespace CROSSPLATFORM2DGAME {
                 
             }
             
-            //because of the width and height requests are only valid once the size is known
-            
-
-         
-            //below is the platform specific code for key listeners
-            //this is only for windows for now
-            //and a placeholder. 
-            //later on a centralised input manager will be created to handle inputs from all platforms
-
         }
+
+        //this is an ugly method that sets up all the layouts for the game
+        //rotten looking to say the least.
         public void SetupGameLayout()
         {
 
@@ -344,6 +358,7 @@ namespace CROSSPLATFORM2DGAME {
             statsLayout.Children.Add(OBBPlaceHolder);
             statsLayout.Children.Add(OBBPlaceHolder2);
             statsLayout.Children.Add(placeHolder);
+
             gameLayout.Children.Add(statsLayout);
 
             //this sets the content of the page to the game layout i.e the overarching layout
@@ -351,11 +366,6 @@ namespace CROSSPLATFORM2DGAME {
 
             gameLayoutWidth = gameLayout.WidthRequest;
             gameLayoutHeight = gameLayout.HeightRequest;
-
-            //return Task.CompletedTask;
         }
-
-
-
     }
 }
