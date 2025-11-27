@@ -10,6 +10,8 @@ using System.Numerics; // For Vector2
 
     namespace CROSSPLATFORM2DGAME {
         public class OBB {
+
+            public string objectType { get; set; }
             public Vector2 Center { get; private set; }  // Object center
             public double Width { get; private set; }    // Rectangle width
             public double Height { get; private set; }   // Rectangle height

@@ -10,14 +10,18 @@ using System.Threading.Tasks;
 namespace CROSSPLATFORM2DGAME
 {
     class player : gameObject {
-        
+
+        public double fuel;
+
         public player() {
+            fuel = 100;
             //create the image for the player
             createLayout(40, 77);
             createImage("car31.png", 40, 77);
+
             
-            double playerCenterX = layoutWidth / 2 - imageWidth / 2;
-            double playerCenterY = layoutHeight / 2 - imageHeight / 2;
+            //double playerCenterX = layoutWidth / 2 - imageWidth / 2;
+            //double playerCenterY = layoutHeight / 2 - imageHeight / 2;
 
             //AbsoluteLayout.SetLayoutBounds(gameObjectImage, new Rect(playerCenterX, playerCenterY, gameObjectImage.WidthRequest, gameObjectImage.HeightRequest));
            /* setLayoutPosition(MainPage.gameLayoutWidth / 2 - layoutWidth / 2,
@@ -33,6 +37,17 @@ namespace CROSSPLATFORM2DGAME
                         layoutHeight);
 
             
+        }
+
+        public void useFuel(double boostMultiplier) {
+            this.fuel -= 0.0275 * boostMultiplier;//use more fuel if boosting
+        }
+
+        public void addFuel() {
+            this.fuel += 25;
+            if (this.fuel > 100) {
+                this.fuel = 100;
+            }
         }
 
     }

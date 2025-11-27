@@ -28,6 +28,8 @@ namespace CROSSPLATFORM2DGAME {
         //GAME OBJECTS
         player myP;
         enemy enemyTest;
+        fuelObject fuelTest;
+        List<gameObject> toRemove;
 
         //VARIABLES
         public static double gameLayoutWidth;
@@ -35,10 +37,12 @@ namespace CROSSPLATFORM2DGAME {
         public float playerX =0;
         public float playerY =0;
 
+        
+
         public MainPage() {
             InitializeComponent();
             keyHandler = new KeyHandler();
-
+            toRemove = new List<gameObject>();
         }
 
         //SET UP GAME TIMER
@@ -66,29 +70,38 @@ namespace CROSSPLATFORM2DGAME {
             double rad = rp * Math.PI / 180.0;
 
             // --- INPUT → ACCELERATION ------------------
-            if (keyHandler.Up) {
-                if (keyHandler.Space) {
-                    boostMultiplier = 2.0;
-                } else if (!keyHandler.Space) {
-                    boostMultiplier = 1.0;
-                }
-                acceleration = accelRate * boostMultiplier;
+            if (myP.fuel > 0) {
+                if (keyHandler.Up) {
+                    if (keyHandler.Space) {
+                        boostMultiplier = 2.0;
+                    } else if (!keyHandler.Space) {
+                        boostMultiplier = 1.0;
+                    }
+                    acceleration = accelRate * boostMultiplier;
 
-                if (keyHandler.Left)
-                    rp += turnSpeed * (speed / maxSpeed);  // proportional turning
-                if (keyHandler.Right)
-                    rp -= turnSpeed * (speed / maxSpeed);
-            } else if (keyHandler.Down) {
-                acceleration = -brakeRate;
-                if (keyHandler.Left)
-                    rp += turnSpeed * (speed / maxSpeed);  // proportional turning
-                if (keyHandler.Right)
-                    rp -= turnSpeed * (speed / maxSpeed);
-            } else
+                    if (keyHandler.Left)
+                        rp += turnSpeed * (speed / maxSpeed);  // proportional turning
+                    if (keyHandler.Right)
+                        rp -= turnSpeed * (speed / maxSpeed);
+                } else if (keyHandler.Down) {
+                    acceleration = -brakeRate;
+                    if (keyHandler.Left)
+                        rp += turnSpeed * (speed / maxSpeed);  // proportional turning
+                    if (keyHandler.Right)
+                        rp -= turnSpeed * (speed / maxSpeed);
+                } else
+                    acceleration = 0;
+            } else {
+                //OUT OF FUEL - NO ACCELERATION
                 acceleration = 0;
-
+            }
             // --- APPLY ACCELERATION ---------------------
             speed += acceleration;
+
+            //SUBTRACT FUEL WHILE MOVING
+            if(Math.Abs(speed) > 0 && myP.fuel > 0) {
+                myP.useFuel(boostMultiplier);
+            }
 
             // --- APPLY FRICTION WHEN NO KEYS PRESSED ----
             if (!keyHandler.Up && !keyHandler.Down) {
@@ -112,38 +125,54 @@ namespace CROSSPLATFORM2DGAME {
             double dx = speed * Math.Sin(rad);
             double dy = speed * Math.Cos(rad);
 
-            
-            //OBB UPDATES
+            // OBB UPDATES
             myP.objectOBB.Update(new Vector2(playerX - (float)xp, playerY - (float)yp), rp * Math.PI / 180.0);
             enemyTest.objectOBB.Update(new Vector2(enemyTest.enemyOBBCenterX, enemyTest.enemyOBBCenterY), 0);
 
+
             bool collision = false;
+            for (int i = OBBHandler.staticOBBs.Count - 1; i >= 0; i--) {
+                if (myP.objectOBB.Intersects(OBBHandler.staticOBBs[i])) {
+                    if(OBBHandler.staticOBBs[i].objectType == "fuel") {
+                        myP.addFuel();
+                    }
+
+                    OBBHandler.staticOBBs.RemoveAt(i);//can remove here as its a logic list
+                    toRemove.Add(fuelTest);//add to remove list to remove in UI Thread.
+
+                }
+            }
+
             for (int i = OBBHandler.movingOBBs.Count - 1; i >= 0; i--) {
                 if (myP.objectOBB.Intersects(OBBHandler.movingOBBs[i])) {
                     collision = true;
-                    backFrame = 60;
+                    backFrame = 60; // amount of frames to allow back off after collision
                     break;
                 }
             }
-
             if (collision) {
-                if (backFrame > 0) {
-                    acceleration -= brakeRate * 50;
-                    speed += acceleration;
+                if (speed > 0) {
+                    speed = -speed;
+                }
+                
+                if (backFrame > 0) { // a bit of a lopsided collision response but basically if backframe is over 0, a collision has been called.
+                    backFrame--;
+                    
                     xp += dx;
                     yp += dy;
-
-                    backFrame--;
                 }
-
             } else if (!collision) {
                 xp += dx;
                 yp += dy;
+            } else {
+                // Collision happened, but no extra handling (just stops movement)
             }
+
+            
 
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                placeHolder.Text = $"Speed: {speed:F2} Accel: {acceleration:F2} Boost: {boostMultiplier:F1}";
+                placeHolder.Text = $"Speed: {speed:F2} Accel: {acceleration:F2} Boost: {boostMultiplier:F1} Fuel {myP.fuel}";
                 OBBPlaceHolder.Text = $"OBB Center: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
                     $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
                     $"Rotation: {rp:F2}°";
@@ -153,9 +182,16 @@ namespace CROSSPLATFORM2DGAME {
                 OBBPlaceHolder2.Text = $"OBB Center: ({enemyTest.objectOBB.Center.X:F2}, {enemyTest.objectOBB.Center.Y:F2})\n" +
                     $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
                     $"Rotation: {rp:F2}°\nCollision: {collision}";
+
+                if(toRemove.Count > 0) {
+                    for(int i = 0; i < toRemove.Count; i++) {
+                        mapLayout.Children.Remove(toRemove[i].gameObjectLayout);
+                    }
+                }
             });
         }
-        
+
+
         protected override void OnDisappearing() {
             base.OnDisappearing();
             gameTimer.Stop();
@@ -207,6 +243,7 @@ namespace CROSSPLATFORM2DGAME {
 
                         myP = new player();
                         enemyTest = new enemy();
+                        fuelTest = new fuelObject();
                         /*
                         double centerX = gameLayout.Width / 2 - myP.layoutWidth / 2;
                         double centerY = gameLayout.Height / 2 - myP.layoutHeight / 2;
@@ -214,11 +251,12 @@ namespace CROSSPLATFORM2DGAME {
                         myP.setLayoutPosition(centerX, centerY, myP.layoutWidth, myP.layoutHeight);
                         */
 
-                       
+
                         gameLayout.Children.Add(myP.gameObjectLayout);
                         mapLayout.Children.Add(enemyTest.gameObjectLayout);
+                        mapLayout.Children.Add(fuelTest.gameObjectLayout);
 
-                        myP.setUpOBB(new Vector2(playerX, playerY), (float)myP.layoutWidth, (float)myP.layoutHeight, 0);
+                        myP.setUpOBB(new Vector2(playerX, playerY), (float)myP.layoutWidth - 6, (float)myP.layoutHeight - 6, 0);
                         setUpTimer();
 
 

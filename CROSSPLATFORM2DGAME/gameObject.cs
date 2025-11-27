@@ -18,6 +18,8 @@ namespace CROSSPLATFORM2DGAME
         //
         public AbsoluteLayout gameObjectLayout { get; set; }
         public Image gameObjectImage { get; set; }
+
+        
         public double globalX { get; set; }
         public double globalY { get; set; }
         public double layoutWidth { get; set; }
@@ -28,6 +30,14 @@ namespace CROSSPLATFORM2DGAME
         public double imageHeight { get; set; }
 
         //method to set where it will be on the map.
+        //FORMULA
+        //createLayout(width, height);
+        //createImage(imageSource, width, height);
+        //setImagePosition(x, y, width, height); //x and y relative to layout
+        //setLayoutPosition(x, y, width, height); //x and y relative to game world
+        //setUpOBB(center, width, height, rotation);
+        //ADD TO OBB HANDLER DEPENDING ON IF ITS A MOVING OBJECT OR STATIC OBJECT
+
         public void setLayoutPosition(double x, double y, double width, double height) {
             AbsoluteLayout.SetLayoutBounds(gameObjectLayout, new Rect(x,y,width,height));
             //the x and y of the layout is relative to the game world so we pass them into its globalCoordinateObject
@@ -36,6 +46,11 @@ namespace CROSSPLATFORM2DGAME
         }
         public void setUpOBB(Vector2 center, float width, float height, double rotation) {
             objectOBB = new OBB(center, width, height, rotation);
+        }
+
+        public void setUpOBB(Vector2 center, float width, float height, double rotation, string objectType) {
+            objectOBB = new OBB(center, width, height, rotation);
+            objectOBB.objectType = objectType;
         }
 
         public void setImagePosition(double x, double y, double width, double height) {

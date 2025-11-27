@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 namespace CROSSPLATFORM2DGAME {
     internal class OBBHandler {
         public static List<OBB> movingOBBs = new List<OBB>();
+        public static List<OBB> staticOBBs = new List<OBB>();
 
 
     }
