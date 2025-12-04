@@ -12,9 +12,11 @@ namespace CROSSPLATFORM2DGAME
     class player : gameObject {
 
         public double fuel;
+        public double boostAmount;
 
         public player() {
             fuel = 100;
+            boostAmount = 100;
             //create the image for the player
             createLayout(40, 77);
             createImage("car31.png", 40, 77);
@@ -34,6 +36,13 @@ namespace CROSSPLATFORM2DGAME
 
 
             
+        }
+
+        public void useBoost() {
+            this.boostAmount -= 0.60;
+            if (this.boostAmount < 0) {
+                this.boostAmount = 0;
+            }
         }
 
         public void useFuel(double boostMultiplier) {

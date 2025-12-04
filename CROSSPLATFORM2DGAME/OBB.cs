@@ -9,15 +9,15 @@ using System.Numerics; // For Vector2
 
 
     namespace CROSSPLATFORM2DGAME {
-        public class OBB {
-
+        public class OBB {    
             public string objectType { get; set; }
             public Vector2 Center { get; private set; }  // Object center
             public double Width { get; private set; }    // Rectangle width
             public double Height { get; private set; }   // Rectangle height
             public double Rotation { get; private set; } // Rotation in radians
             public Vector2[] Corners { get; private set; } = new Vector2[4];
-
+            public enemy thisEnemy;
+            
             public OBB(Vector2 center, double width, double height, double rotationRadians = 0) {
                 Center = center;
                 Width = width;

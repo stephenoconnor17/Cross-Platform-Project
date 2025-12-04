@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace CROSSPLATFORM2DGAME
 {
-    class gameObject
+    public class gameObject
     {
         //we treat the Image as the visual representation of the game object
         //and the Layout as the container / positioning element
@@ -43,6 +43,11 @@ namespace CROSSPLATFORM2DGAME
         }
 
         //use for moving objects like enemies - eventually to be diseccted into different sections on map. 
+        public void setUpOBB(Vector2 center, float width, float height, double rotation, enemy e) {
+            objectOBB = new OBB(center, width, height, rotation);
+            objectOBB.thisEnemy = e;
+        }
+
         public void setUpOBB(Vector2 center, float width, float height, double rotation) {
             objectOBB = new OBB(center, width, height, rotation);
         }
@@ -79,5 +84,13 @@ namespace CROSSPLATFORM2DGAME
             this.layoutHeight = gameObjectLayout.HeightRequest;
         }
 
+        public double NormalizeAngle(double a) {
+            a %= 360;
+            if (a > 180) a -= 360;
+            if (a < -180) a += 360;
+            return a;
+        }
     }
 }
+
+
