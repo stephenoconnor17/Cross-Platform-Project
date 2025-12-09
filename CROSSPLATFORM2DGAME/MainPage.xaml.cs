@@ -32,6 +32,9 @@ namespace CROSSPLATFORM2DGAME {
         AbsoluteLayout fuelLayout;
         BoxView fuelBar;
 
+        AbsoluteLayout healthLayout;
+        Image h1, h2, h3, h4, h5;
+
         AbsoluteLayout boostLayout;
         BoxView boostBar;
 
@@ -362,9 +365,10 @@ namespace CROSSPLATFORM2DGAME {
                         $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
                         $"Rotation: {rp:F2}°\nCollision: {collision}";
 
-                
 
-                //ACTUAL LAYOUT UPDATES
+
+                    //ACTUAL LAYOUT UPDATES
+                    updateHealthLayout();
                     updateFuelMeter(myP.fuel);
                     updateTimerLabel(); // also updates boost VARIABLE but not LABEL.
                     updateBoostMeter(myP.boostAmount);
@@ -402,8 +406,6 @@ namespace CROSSPLATFORM2DGAME {
                             }
                         }
                     }
-
-
                 });
         }
 
@@ -464,6 +466,7 @@ namespace CROSSPLATFORM2DGAME {
                         setUpFuelLayout();
                         setUpTimerLayout();
                         setUpBoostLayout();
+                        setUpHealthLayout();
 
                         //TO BE DELETED LATER - JUST FOR TESTING OBB VALUES
                         AbsoluteLayout.SetLayoutBounds(OBBPlaceHolder, new Rect(0, 25, statsLayout.WidthRequest, statsLayout.HeightRequest));
@@ -474,6 +477,7 @@ namespace CROSSPLATFORM2DGAME {
 
                         statsLayout.Children.Add(fuelLayout);
                         statsLayout.Children.Add(boostLayout);
+                        statsLayout.Children.Add(healthLayout);
 
                         statsLayout.Children.Add(OBBPlaceHolder);
                         statsLayout.Children.Add(OBBPlaceHolder2);
@@ -675,6 +679,90 @@ namespace CROSSPLATFORM2DGAME {
                 boostBar.WidthRequest,
                 boostHeight
             ));
+        }
+
+        bool healthInvulnerable = false;
+        public void updateHealthLayout() {
+            switch (myP.lives) {
+                case 4:
+                    h5.IsVisible = false;
+                    break;
+                case 3:
+                    h4.IsVisible = false;
+                    break;
+                case 2:
+                    h3.IsVisible = false;
+                    break;
+                case 1:
+                    h2.IsVisible = false;
+                    break;
+                case 0:
+                    h1.IsVisible = false;
+                    break;
+            }
+
+            if(invincibleFrame > 0) {
+                if (!healthInvulnerable) {
+                    h1.Source = "heart2.png";
+                    h2.Source = "heart2.png";
+                    h3.Source = "heart2.png";
+                    h4.Source = "heart2.png";
+                    h5.Source = "heart2.png";
+                    healthInvulnerable = true;
+                }
+            }else if (healthInvulnerable) {
+                h1.Source = "heart1.png";
+                h2.Source = "heart1.png";
+                h3.Source = "heart1.png";
+                h4.Source = "heart1.png";
+                h5.Source = "heart1.png";
+                healthInvulnerable = false;
+            }
+
+        }
+
+        public void setUpHealthLayout() {
+            healthLayout = new AbsoluteLayout {
+                BackgroundColor = Colors.Transparent,
+                WidthRequest = gameLayoutWidth / 6,
+                HeightRequest = gameLayoutHeight / 12
+            };
+
+            h1 = new Image {
+                Source = "heart1.png",
+            };
+
+            h2 = new Image {
+                Source = "heart1.png",
+            };
+
+            h3 = new Image {
+                Source = "heart1.png",
+            };
+
+            h4 = new Image {
+                Source = "heart1.png",
+            };
+
+            h5 = new Image {
+                Source = "heart1.png",
+            };
+
+            AbsoluteLayout.SetLayoutBounds(healthLayout, new Rect(0.025, .90, healthLayout.WidthRequest, healthLayout.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(healthLayout, AbsoluteLayoutFlags.PositionProportional);
+
+
+            AbsoluteLayout.SetLayoutBounds(h1, new Rect(0 ,0, 48, 48));
+            AbsoluteLayout.SetLayoutBounds(h2, new Rect(healthLayout.WidthRequest / 5 * 1, 0, 48, 48));
+            AbsoluteLayout.SetLayoutBounds(h3, new Rect(healthLayout.WidthRequest / 5 * 2, 0, 48, 48));
+            AbsoluteLayout.SetLayoutBounds(h4, new Rect(healthLayout.WidthRequest / 5 * 3, 0, 48, 48));
+            AbsoluteLayout.SetLayoutBounds(h5, new Rect(healthLayout.WidthRequest / 5 * 4, 0, 48, 48));
+
+            healthLayout.Children.Add(h1);
+            healthLayout.Children.Add(h2);
+            healthLayout.Children.Add(h3);
+            healthLayout.Children.Add(h4);
+            healthLayout.Children.Add(h5);
         }
 
         public void setUpFuelLayout() {
