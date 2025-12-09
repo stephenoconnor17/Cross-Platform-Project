@@ -17,6 +17,8 @@ using System.Numerics; // For Vector2
             public double Rotation { get; private set; } // Rotation in radians
             public Vector2[] Corners { get; private set; } = new Vector2[4];
             public enemy thisEnemy;
+
+            public gameObject thisObject;
             
             public OBB(Vector2 center, double width, double height, double rotationRadians = 0) {
                 Center = center;

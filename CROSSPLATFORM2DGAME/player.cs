@@ -11,10 +11,12 @@ namespace CROSSPLATFORM2DGAME
 {
     class player : gameObject {
 
+        public int lives;
         public double fuel;
         public double boostAmount;
 
         public player() {
+            lives = 5;
             fuel = 100;
             boostAmount = 100;
             //create the image for the player
@@ -32,11 +34,10 @@ namespace CROSSPLATFORM2DGAME
             setLayoutPosition(MainPage.gameLayoutWidth / 2 - layoutWidth / 2,
                         MainPage.gameLayoutHeight / 2 - layoutHeight / 2,
                         layoutWidth,
-                        layoutHeight);
-
-
-            
+                        layoutHeight);    
         }
+
+
 
         public void useBoost() {
             this.boostAmount -= 0.60;
@@ -54,6 +55,10 @@ namespace CROSSPLATFORM2DGAME
             if (this.fuel > 100) {
                 this.fuel = 100;
             }
+        }
+
+        public void changeImage(string imageSource) {
+            this.gameObjectImage.Source = imageSource;
         }
 
     }

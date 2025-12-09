@@ -12,7 +12,7 @@ namespace CROSSPLATFORM2DGAME
     {
         //we treat the Image as the visual representation of the game object
         //and the Layout as the container / positioning element
-
+        //try keep size tile to around 48 * 48. it doesnt have to fit perfectly. not that type of game.
         public AbsoluteLayout gameObjectLayout { get; set; }
         public Image gameObjectImage { get; set; }
 
@@ -43,6 +43,7 @@ namespace CROSSPLATFORM2DGAME
         }
 
         //use for moving objects like enemies - eventually to be diseccted into different sections on map. 
+        //supposedly.
         public void setUpOBB(Vector2 center, float width, float height, double rotation, enemy e) {
             objectOBB = new OBB(center, width, height, rotation);
             objectOBB.thisEnemy = e;
@@ -56,6 +57,7 @@ namespace CROSSPLATFORM2DGAME
         public void setUpOBB(Vector2 center, float width, float height, double rotation, string objectType) {
             objectOBB = new OBB(center, width, height, rotation);
             objectOBB.objectType = objectType;
+            objectOBB.thisObject = this;
         }
 
         public void setImagePosition(double x, double y, double width, double height) {

@@ -20,6 +20,13 @@ namespace CROSSPLATFORM2DGAME {
         AbsoluteLayout mapLayout;
         AbsoluteLayout rotateLayout;
 
+        AbsoluteLayout gameOverLayout;
+        Label gameOverLabel1;
+        Label gameOverLabel2;
+        Label gameOverLabel3;
+        int highestScore = 0;
+        public static int score = 0; //static because it gets added to from within other objects when they die.
+
         AbsoluteLayout statsLayout;
 
         AbsoluteLayout fuelLayout;
@@ -67,6 +74,60 @@ namespace CROSSPLATFORM2DGAME {
             gameTimer.Start();
         }
 
+        public void setUpGameOverLayout() {
+            gameOverLayout = new AbsoluteLayout {
+                BackgroundColor = Color.FromArgb("#80000000"),
+                WidthRequest = gameLayoutWidth,
+                HeightRequest = gameLayoutHeight,
+                Opacity = 0.8
+            };
+
+            gameOverLabel1 = new Label {
+                WidthRequest = gameLayoutWidth / 3,
+                HeightRequest = gameLayoutHeight / 6,
+                Text = "GAME OVER",
+                FontFamily= "Consolas"
+            };
+            gameOverLabel2 = new Label {
+                WidthRequest = gameLayoutWidth / 4,
+                HeightRequest = gameLayoutHeight / 7,
+                Text = "HIGH SCORE: 0",
+                FontFamily = "Consolas"
+            };
+            gameOverLabel3 = new Label {
+                WidthRequest = gameLayoutWidth / 4,
+                HeightRequest = gameLayoutHeight / 7,
+                Text = "SCORE: ",
+                FontFamily = "Consolas"
+            };
+
+            AbsoluteLayout.SetLayoutBounds(gameOverLayout, new Rect(0, 0, gameOverLayout.WidthRequest, gameOverLayout.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(gameOverLayout, AbsoluteLayoutFlags.None);
+
+            AbsoluteLayout.SetLayoutBounds(gameOverLabel1, new Rect(0.5, 0.3, gameOverLabel1.WidthRequest, gameOverLabel1.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(gameOverLabel1, AbsoluteLayoutFlags.PositionProportional);
+            AbsoluteLayout.SetLayoutBounds(gameOverLabel2, new Rect(0.5, 0.45, gameOverLabel2.WidthRequest, gameOverLabel2.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(gameOverLabel2, AbsoluteLayoutFlags.PositionProportional);
+            AbsoluteLayout.SetLayoutBounds(gameOverLabel3, new Rect(0.5, 0.6, gameOverLabel3.WidthRequest, gameOverLabel3.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(gameOverLabel3, AbsoluteLayoutFlags.PositionProportional);
+            gameOverLayout.Children.Add(gameOverLabel1);
+            gameOverLayout.Children.Add(gameOverLabel2);
+            gameOverLayout.Children.Add(gameOverLabel3);
+
+            gameOverLayout.IsVisible = false;
+        }
+
+        bool gameOver = false;
+        //gameOver logic here!
+        public void endGame() {
+            gameTimer.Stop();
+            timeTimer.Stop();
+
+            
+
+            gameOver = true;
+        }
+
         //GAME LOOP VARIABLES
         private double xp = 0; // mapLayout X position
         private double yp = 0; // mapLayout Y position
@@ -83,8 +144,27 @@ namespace CROSSPLATFORM2DGAME {
         bool isBoosting = false;
         int backFrame = 0;
 
+        bool invincibleSkin = false;
+        int invincibleFrame = 0;
+        int needToChange = 0;
+
         public void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
             double rad = rp * Math.PI / 180.0; // convert rotation to radians
+
+            for(int i = enemies.Count - 1; i >= 0; i--) {
+                if (enemies[i].removeThis == true) {
+                    OBBHandler.movingOBBs.Remove(enemies[i].objectOBB);
+                    toRemove.Add(enemies[i]);
+                }
+            }
+
+            if(myP.lives <= 0 || (speed <= 0 && myP.fuel <= 0)) {
+                //game over in endGame();
+                endGame();
+              
+            }
+
+            
 
             // --- INPUT → ACCELERATION ------------------
             if (myP.fuel > 0) { //only allow drive if got fuel
@@ -117,7 +197,7 @@ namespace CROSSPLATFORM2DGAME {
             }
 
             // --- APPLY FRICTION WHEN NO KEYS PRESSED ----
-            if (!keyHandler.Up && !keyHandler.Down) {
+            if (!keyHandler.Up && !keyHandler.Down || myP.fuel <= 0) {
                 if (speed > 0)
                     speed -= friction;
                 if (speed < 0)
@@ -130,7 +210,7 @@ namespace CROSSPLATFORM2DGAME {
 
             // --- SPEED LIMIT ----------------------------
             //only allow boost if above threshold of boost amount so cant keep tapping space to go fast
-            if (keyHandler.Space && keyHandler.Up) {
+            if (keyHandler.Space && keyHandler.Up && myP.fuel > 0) {
                 // Start boost if above threshold
                 if (!isBoosting && myP.boostAmount >= 25)
                     isBoosting = true;
@@ -153,7 +233,7 @@ namespace CROSSPLATFORM2DGAME {
                     speed = Math.Clamp(speed, -maxSpeed, maxSpeed);
                 }
             } else {
-                // Space not pressed → stop boosting
+                // Space not pressed -> stop boosting
                 isBoosting = false;
                 boostMultiplier = 1.0;
                
@@ -169,14 +249,7 @@ namespace CROSSPLATFORM2DGAME {
             double dx = speed * Math.Sin(rad);
             double dy = speed * Math.Cos(rad);
 
-            //UPDATES ENEMIES
-            /*
-             
-                blah blah where
-            the enemy decides how to kill the player
-            
-
-             */
+           
 
             bool collision = false;
             //STATIC COLLISION DETECTION
@@ -192,26 +265,36 @@ namespace CROSSPLATFORM2DGAME {
 
 
                     //GENERAL COLLISION RESPONSE
+                    toRemove.Add(OBBHandler.staticOBBs[i].thisObject); //add to remove list to remove in UI Thread.
                     OBBHandler.staticOBBs.RemoveAt(i);//can remove here as its a logical list
-                    toRemove.Add(fuelTest);//add to remove list to remove in UI Thread.
+                   
 
                 }
             }
 
-            bool collisionJustHappened = false;
+    
             //MOVING COLLISION DETECTION
-            for (int i = OBBHandler.movingOBBs.Count - 1; i >= 0; i--) {
-                if (myP.objectOBB.Intersects(OBBHandler.movingOBBs[i])) {
-                    if (!collision)
-                        collisionJustHappened = true; // only set to true on first collision detection
-                    collision = true;
-                    backFrame = 60; // amount of frames to allow back off after collision
-                    OBBHandler.movingOBBs[i].thisEnemy.collision = true; // inform the enemy it has collided
-                    break;
+            //check for collision if not invincible i.e if invincibleFrame > 0, invincible, dont bother check collision.
+            if (invincibleFrame <= 0) {
+                for (int i = OBBHandler.movingOBBs.Count - 1; i >= 0; i--) {
+                    if (myP.objectOBB.Intersects(OBBHandler.movingOBBs[i])) {
+                        if (!collision) {
+                            //collisionJustHappened = true; // only set to true on first collision detection
+                            invincibleFrame = 180;
+                            invincibleSkin = true;
+                            needToChange = 1;
+                            myP.lives--;
+                        }
+                        collision = true;
+                        backFrame = 60; // amount of frames to allow back off after collision i.e one second at 60fps.
+                        OBBHandler.movingOBBs[i].thisEnemy.collision = true; // inform the enemy it has collided
+                        break;
+                    }
                 }
             }
+            //we do this so that it only calculates collision math once.
             if (collision) {
-                if (Math.Abs(speed) > 0 && collisionJustHappened) { //collisionJustHappened ensures we dont continously invert speed every frame
+                if (Math.Abs(speed) > 0 && invincibleFrame == 180) { //collisionJustHappened ensures we dont continously invert speed every frame
                     speed = -speed; //invert speed on collision - sort of a bounce back effect
                     dx = speed * Math.Sin(rad); // reapply dx dy with new speed
                     dy = speed * Math.Cos(rad);
@@ -219,18 +302,31 @@ namespace CROSSPLATFORM2DGAME {
                 }
 
                 if (backFrame > 0) { // a bit of a lopsided collision response but basically if backframe is over 0, a collision has been called.
-                    backFrame--; // decrement backframe until 0. backframe is > 0 = 1 second of collision response given
+                    backFrame--; // decrement backframe until 0. backframe / 60 = x amount of seconds of collision response given
                                  //  60 fps  
 
                     xp += dx;
                     yp += dy;
                 }
+
+                
             } else if (!collision) {
                 xp += dx;
                 yp += dy;
             }
 
-            collisionJustHappened = false; // reset for next frame
+            if (invincibleFrame <= 180) {
+                invincibleFrame--;
+            }
+
+            if(invincibleFrame <= 0) {
+                invincibleFrame = 0;
+                invincibleSkin = false;
+            }
+
+            
+
+            //collisionJustHappened = false; // reset for next frame
 
             // OBB UPDATES
             myP.objectOBB.Update(new Vector2(playerX - (float)xp, playerY - (float)yp), rp * Math.PI / 180.0);
@@ -244,42 +340,77 @@ namespace CROSSPLATFORM2DGAME {
                 //UI UPDATES
                 //SINCE GameTimer_Elapsed IS A BACKGROUND THREAD WE MUST INVOKE ON MAIN THREAD TO UPDATE UI ELEMENTS
                 MainThread.BeginInvokeOnMainThread(() => {
+                    
+                    //compute gameOver stuff here graphically.
+                    if (gameOver) {
+                        statsLayout.Opacity = 0.8;
+                        timerLayout.Opacity = 0.8;
+
+                        gameOverLabel3.Text = "Score: " + score;
+
+                        gameOverLayout.IsVisible = true;
+                    }
+
                 //TEST OUTPUTS
-                placeHolder.Text = $"Speed: {speed:F2} Accel: {acceleration:F2} Boost: {boostMultiplier:F1} Fuel {myP.fuel}";
-                OBBPlaceHolder.Text = $"OBB Center: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
-                    $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
-                    $"Rotation: {rp:F2}°";
+                    placeHolder.Text = $"Speed: {speed:F2} Accel: {acceleration:F2} Boost: {boostMultiplier:F1} Fuel {myP.fuel}";
+                    OBBPlaceHolder.Text = $"OBB Center: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
+                        $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
+                        $"Rotation: {rp:F2}°";
 
 
-                OBBPlaceHolder2.Text = $"OBB Center: ({enemyTest.objectOBB.Center.X:F2}, {enemyTest.objectOBB.Center.Y:F2})\n" +
-                    $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
-                    $"Rotation: {rp:F2}°\nCollision: {collision}";
+                    OBBPlaceHolder2.Text = $"OBB Center: ({enemyTest.objectOBB.Center.X:F2}, {enemyTest.objectOBB.Center.Y:F2})\n" +
+                        $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
+                        $"Rotation: {rp:F2}°\nCollision: {collision}";
+
+                
 
                 //ACTUAL LAYOUT UPDATES
-                updateFuelMeter(myP.fuel);
-                updateTimerLabel(); // also updates boost VARIABLE but not LABEL.
-                updateBoostMeter(myP.boostAmount);
+                    updateFuelMeter(myP.fuel);
+                    updateTimerLabel(); // also updates boost VARIABLE but not LABEL.
+                    updateBoostMeter(myP.boostAmount);
 
-                mapLayout.TranslationX = xp;
-                mapLayout.TranslationY = yp;
-                rotateLayout.Rotation = rp;
+                    //it would be nice to have this in its own class but  the weird
+                    //mix between player and MainPage is forced upon me by the layout system, curses.
+                    mapLayout.TranslationX = xp;
+                    mapLayout.TranslationY = yp;
+                    rotateLayout.Rotation = rp;
 
-                for (int i = 0; i < enemies.Count; i++) {
-                    enemies[i].updateUi((float)xp, (float)yp, rp, (float)gameLayoutWidth, (float)gameLayoutHeight, playerX, playerY);
-                }
+                    if (invincibleSkin) { //we use needToChange to ensure that it only changes once per state.
+                                          //not every frame per strate.
+                        if (needToChange == 1) {
+                            myP.changeImage("car41.png");
+                            needToChange = 0;
+                        }
+                    } else {
+                        if (needToChange == 0) {
+                            myP.changeImage("car31.png");
+                            needToChange = 1;
+                        }
+                    }
+
+                    //update enemies on UI
+                    for (int i = 0; i < enemies.Count; i++) {
+                        enemies[i].updateUi((float)xp, (float)yp, rp, (float)gameLayoutWidth, (float)gameLayoutHeight, playerX, playerY);
+                    }
 
                     //rather clear what this does.
                     if (toRemove.Count > 0) {
-                    for (int i = 0; i < toRemove.Count; i++) {
-                        mapLayout.Children.Remove(toRemove[i].gameObjectLayout);
+                        for (int i = 0; i < toRemove.Count; i++) {
+                            mapLayout.Children.Remove(toRemove[i].gameObjectLayout);
+                            if (toRemove[i] is enemy) {
+                                enemies.Remove((enemy)toRemove[i]);
+                            }
+                        }
                     }
-                }
-            });
+
+
+                });
         }
 
         protected override void OnDisappearing() {
             base.OnDisappearing();
             gameTimer.Stop();
+            timeTimer.Stop();
         }
 
         //INITIAL SETUP BEFORE STARTING GAME LOOP
@@ -292,11 +423,11 @@ namespace CROSSPLATFORM2DGAME {
             //we use sizeChanged events on the layouts to double triple ensure we have valid width/height values before using them.
 
             base.OnAppearing();
-#if WINDOWS
+            #if WINDOWS
             if (this.Window != null) {
                 KeyHook.Attach(this.Window, keyHandler);
             }
-#endif
+            #endif
 
             // Initialize layouts and images
 
@@ -348,6 +479,9 @@ namespace CROSSPLATFORM2DGAME {
                         statsLayout.Children.Add(OBBPlaceHolder2);
                         statsLayout.Children.Add(placeHolder);
 
+                        setUpGameOverLayout();
+
+                        gameLayout.Children.Add(gameOverLayout);
                         gameLayout.Children.Add(statsLayout);
 
 
@@ -357,7 +491,7 @@ namespace CROSSPLATFORM2DGAME {
                         enemyTest = new enemy(100,100);
                         enemyTest2 = new enemy(300, 300);
 
-                        fuelTest = new fuelObject();
+                        fuelTest = new fuelObject(300,300);
 
                         enemies.Add(enemyTest);
                         enemies.Add(enemyTest2);
@@ -477,7 +611,7 @@ namespace CROSSPLATFORM2DGAME {
             
             if(boostMultiplier == 1.0) {
                 if (myP.boostAmount < 100) {
-                    myP.boostAmount += 1.0;
+                    myP.boostAmount += 2.5;
                     if (myP.boostAmount > 100) {
                         myP.boostAmount = 100;
                     }
