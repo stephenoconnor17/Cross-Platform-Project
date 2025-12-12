@@ -125,6 +125,22 @@ namespace CROSSPLATFORM2DGAME {
                     break; // Only avoid one enemy at a time
                 }
             }
+            for (int i = 0; i < OBBHandler.staticOBBs.Count; i++) {
+
+                // Check if we're colliding or about to collide
+                if (this.objectOBB.Intersects(OBBHandler.staticOBBs[i])) {
+                    if (OBBHandler.staticOBBs[i].objectType == "wall") {
+                        enemyCollision = true;
+
+                        // Calculate angle AWAY from the other enemy
+                        gameObject otherObject = OBBHandler.staticOBBs[i].thisObject;
+                        double angleAway = Math.Atan2(this.objectOBB.Center.Y  - otherObject.objectOBB.Center.Y, this.objectOBB.Center.X - otherObject.objectOBB.Center.X) * 180.0 / Math.PI;
+                        angleAway += 90.0;
+                        avoidanceAngle = NormalizeAngle(angleAway);
+                        break; // Only avoid one enemy at a time
+                    }
+                }
+            }
 
             double rad = 0;
             // --- COLLISION ---

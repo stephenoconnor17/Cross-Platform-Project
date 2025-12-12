@@ -1,6 +1,8 @@
-﻿using Microsoft.Maui.Controls.Shapes;
+﻿using Microsoft.Maui.Controls;
+using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Maui.Layouts;
 using Microsoft.UI.Xaml.Input;
+using System.Data;
 using System.Diagnostics;
 using System.Numerics;
 using System.Timers;
@@ -16,8 +18,17 @@ namespace CROSSPLATFORM2DGAME {
         System.Timers.Timer gameTimer;
 
         //LAYOUT / VIEWS
+        AbsoluteLayout startLayout;
+        Label startTitle;
+        Button startButton;
+        Button settingsButton;
+
+
         AbsoluteLayout gameLayout;
         AbsoluteLayout mapLayout;
+        double mapLayoutWidth = 0;
+        double mapLayoutHeight = 0;
+
         AbsoluteLayout rotateLayout;
 
         AbsoluteLayout gameOverLayout;
@@ -51,7 +62,10 @@ namespace CROSSPLATFORM2DGAME {
         player myP;
         enemy enemyTest;
         enemy enemyTest2;
-        List<enemy> enemies;
+        //List<enemy> enemies;
+
+        wallObject wallTest;
+        lootObject lootTest;
         fuelObject fuelTest;
         List<gameObject> toRemove;
 
@@ -66,7 +80,6 @@ namespace CROSSPLATFORM2DGAME {
         public MainPage() {
             InitializeComponent();
             keyHandler = new KeyHandler();
-            enemies = new List<enemy>();
             toRemove = new List<gameObject>();
         }
 
@@ -154,10 +167,10 @@ namespace CROSSPLATFORM2DGAME {
         public void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
             double rad = rp * Math.PI / 180.0; // convert rotation to radians
 
-            for(int i = enemies.Count - 1; i >= 0; i--) {
-                if (enemies[i].removeThis == true) {
-                    OBBHandler.movingOBBs.Remove(enemies[i].objectOBB);
-                    toRemove.Add(enemies[i]);
+            for(int i = mg.enemies.Count - 1; i >= 0; i--) {
+                if (mg.enemies[i].removeThis == true) {
+                    OBBHandler.movingOBBs.Remove(mg.enemies[i].objectOBB);
+                    toRemove.Add(mg.enemies[i]);
                 }
             }
 
@@ -262,20 +275,25 @@ namespace CROSSPLATFORM2DGAME {
                     //FUEL PICKUP DETECTION
                     if (OBBHandler.staticOBBs[i].objectType == "fuel") {
                         myP.addFuel();
+                        toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
+                        OBBHandler.staticOBBs.RemoveAt(i);
                     }
                     //LOOT PICKUP DETECTION
-
-
-
-                    //GENERAL COLLISION RESPONSE
-                    toRemove.Add(OBBHandler.staticOBBs[i].thisObject); //add to remove list to remove in UI Thread.
-                    OBBHandler.staticOBBs.RemoveAt(i);//can remove here as its a logical list
-                   
-
+                    else if (OBBHandler.staticOBBs[i].objectType == "loot") {
+                        score += 200;
+                        toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
+                        OBBHandler.staticOBBs.RemoveAt(i);
+                    }
+                    //WALL COLLISION
+                    else if (OBBHandler.staticOBBs[i].objectType == "wall") {
+                        collision = true;
+                        backFrame = 60;
+                        
+                    }
                 }
             }
 
-    
+
             //MOVING COLLISION DETECTION
             //check for collision if not invincible i.e if invincibleFrame > 0, invincible, dont bother check collision.
             if (invincibleFrame <= 0) {
@@ -297,7 +315,7 @@ namespace CROSSPLATFORM2DGAME {
             }
             //we do this so that it only calculates collision math once.
             if (collision) {
-                if (Math.Abs(speed) > 0 && invincibleFrame == 180) { //collisionJustHappened ensures we dont continously invert speed every frame
+                if (Math.Abs(speed) > 0 && backFrame == 60) { //collisionJustHappened ensures we dont continously invert speed every frame
                     speed = -speed; //invert speed on collision - sort of a bounce back effect
                     dx = speed * Math.Sin(rad); // reapply dx dy with new speed
                     dy = speed * Math.Cos(rad);
@@ -335,8 +353,8 @@ namespace CROSSPLATFORM2DGAME {
             myP.objectOBB.Update(new Vector2(playerX - (float)xp, playerY - (float)yp), rp * Math.PI / 180.0);
             //enemy is rotated -rp to keep it aligned with the map layout rotation
             //enemyTest.objectOBB.Update(new Vector2(enemyTest.enemyOBBCenterX, enemyTest.enemyOBBCenterY), -rp * Math.PI / 180.0);
-            for (int i = 0; i < enemies.Count; i++) {
-                enemies[i].update(playerX - (float)xp, playerY - (float)yp);
+            for (int i = 0; i < mg.enemies.Count; i++) {
+                mg.enemies[i].update(playerX - (float)xp, playerY - (float)yp);
             }
 
 
@@ -360,11 +378,18 @@ namespace CROSSPLATFORM2DGAME {
                         $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
                         $"Rotation: {rp:F2}°";
 
-
+                    /*
                     OBBPlaceHolder2.Text = $"OBB Center: ({enemyTest.objectOBB.Center.X:F2}, {enemyTest.objectOBB.Center.Y:F2})\n" +
                         $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
                         $"Rotation: {rp:F2}°\nCollision: {collision}";
-
+                    */
+                    if (wallTest != null && wallTest.objectOBB != null) {
+                        OBBPlaceHolder2.Text = $"Wall OBB: ({wallTest.objectOBB.Center.X:F2}, {wallTest.objectOBB.Center.Y:F2})\n" +
+                                               $"Player OBB: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
+                                               $"Distance: {Vector2.Distance(wallTest.objectOBB.Center, myP.objectOBB.Center):F2}\n" +
+                                               $"Intersects: {myP.objectOBB.Intersects(wallTest.objectOBB)}\n" +
+                                               $"ObjectType: {wallTest.objectOBB.objectType}";
+                    }
 
 
                     //ACTUAL LAYOUT UPDATES
@@ -393,8 +418,8 @@ namespace CROSSPLATFORM2DGAME {
                     }
 
                     //update enemies on UI
-                    for (int i = 0; i < enemies.Count; i++) {
-                        enemies[i].updateUi((float)xp, (float)yp, rp, (float)gameLayoutWidth, (float)gameLayoutHeight, playerX, playerY);
+                    for (int i = 0; i < mg.enemies.Count; i++) {
+                        mg.enemies[i].updateUi((float)xp, (float)yp, rp, (float)gameLayoutWidth, (float)gameLayoutHeight, playerX, playerY);
                     }
 
                     //rather clear what this does.
@@ -402,7 +427,7 @@ namespace CROSSPLATFORM2DGAME {
                         for (int i = 0; i < toRemove.Count; i++) {
                             mapLayout.Children.Remove(toRemove[i].gameObjectLayout);
                             if (toRemove[i] is enemy) {
-                                enemies.Remove((enemy)toRemove[i]);
+                                mg.enemies.Remove((enemy)toRemove[i]);
                             }
                         }
                     }
@@ -411,8 +436,13 @@ namespace CROSSPLATFORM2DGAME {
 
         protected override void OnDisappearing() {
             base.OnDisappearing();
-            gameTimer.Stop();
-            timeTimer.Stop();
+            if (gameTimer != null) {
+                gameTimer.Stop();
+            }
+
+            if (timeTimer != null) {
+                timeTimer.Stop();
+            }
         }
 
         //INITIAL SETUP BEFORE STARTING GAME LOOP
@@ -479,49 +509,124 @@ namespace CROSSPLATFORM2DGAME {
                         statsLayout.Children.Add(boostLayout);
                         statsLayout.Children.Add(healthLayout);
 
+                        /*
                         statsLayout.Children.Add(OBBPlaceHolder);
                         statsLayout.Children.Add(OBBPlaceHolder2);
                         statsLayout.Children.Add(placeHolder);
+                        */
 
+                        setUpStartLayout();
                         setUpGameOverLayout();
 
+                        gameLayout.Children.Add(startLayout);
                         gameLayout.Children.Add(gameOverLayout);
                         gameLayout.Children.Add(statsLayout);
 
-
+                        //gameLayout.Children.Add(startLayout);
 
                         //CREATE GAME OBJECTS HERE AS NOW THE MAPLAYOUT IS PROPERLY SET UP AND WE HAVE VALID WIDTH/HEIGHT VALUES
                         myP = new player();
+
+                        /*
                         enemyTest = new enemy(100,100);
                         enemyTest2 = new enemy(300, 300);
 
                         fuelTest = new fuelObject(300,300);
+                        lootTest = new lootObject(500, 200);
+                        wallTest = new wallObject(600, 300);
 
                         enemies.Add(enemyTest);
-                        enemies.Add(enemyTest2);
+                        enemies.Add(enemyTest2);*/
 
                         //ADD GAME OBJECTS TO LAYOUTS
                         gameLayout.Children.Add(myP.gameObjectLayout);// this is unique. the rest should be added to mapLayout
 
+                        /*
                         mapLayout.Children.Add(enemyTest2.gameObjectLayout);
                         mapLayout.Children.Add(enemyTest.gameObjectLayout);
                         mapLayout.Children.Add(fuelTest.gameObjectLayout);
+                        mapLayout.Children.Add(lootTest.gameObjectLayout);
+
+                        mapLayout.Children.Add(wallTest.gameObjectLayout);
+                        */
 
                         //We set this up here the center of mapLayout is now valid!
                         myP.setUpOBB(new Vector2(playerX, playerY), (float)myP.imageWidth - 8, (float)myP.imageHeight - 7, 0);
                         //myP.setUpOBB(new Vector2(playerX, playerY),32, 70, 0);
+                        mapLayout.IsVisible = false;
+
+                        statsLayout.IsVisible = false;
+                        rotateLayout.IsVisible = false;
+                        myP.gameObjectLayout.IsVisible = false;
+                        
+                        /*
                         setUpTimer();
                         startTimeTimer();
+                        */
 
 
                         //DisplayAlert("Debug", $"gameLayout measured size: {gameLayout.Width} x {gameLayout.Height}", "OK");
                     }
                 };
 
+            } else {
+                //HERE WE RE-ASSIGN SIZES SO THINGS STAY CENTERED.
             }
 
         }
 
+        public void setUpStartLayout() {
+            startLayout = new AbsoluteLayout {
+                WidthRequest = gameLayoutWidth,
+                HeightRequest = gameLayoutHeight,
+                BackgroundColor = Colors.Gray
+            };
+
+            startButton = new Button {
+                BackgroundColor = Colors.DarkGray,
+                Text = "Start",
+                FontFamily = "Consolas",
+            };
+
+            double shortestSide = Math.Min(gameLayoutWidth, gameLayoutHeight);
+
+            double fontSize = shortestSide * 0.20; // 8% of screen
+
+            startTitle = new Label {
+                Text = "driv.r",
+                FontFamily = "Consolas",
+                FontSize = fontSize
+            };
+
+            AbsoluteLayout.SetLayoutBounds(startTitle, new Rect(.5,.2,300,300));
+            AbsoluteLayout.SetLayoutFlags(startTitle, AbsoluteLayoutFlags.PositionProportional);
+
+            AbsoluteLayout.SetLayoutBounds(startLayout, new Rect(0,0, gameLayoutWidth, gameLayoutHeight));
+            AbsoluteLayout.SetLayoutFlags(startLayout, AbsoluteLayoutFlags.None);
+
+            AbsoluteLayout.SetLayoutBounds(startButton, new Rect(.5, .5, 100, 50));
+            AbsoluteLayout.SetLayoutFlags(startButton, AbsoluteLayoutFlags.PositionProportional);
+
+            startButton.Clicked += startButton_Clicked;
+
+            startLayout.Children.Add(startTitle);
+            startLayout.Children.Add(startButton);
+        }
+
+        mapGenerator mg;
+
+        public void startButton_Clicked(object o, EventArgs e) {
+            startLayout.IsVisible = false;
+            rotateLayout.IsVisible = true;
+            mapLayout.IsVisible = true;
+            statsLayout.IsVisible = true;
+            myP.gameObjectLayout.IsVisible = true;
+
+            mg = new mapGenerator(mapLayout, mapLayoutWidth, mapLayoutHeight);
+
+            setUpTimer();
+            startTimeTimer();
+        }
         //this is an ugly method that sets up all the layouts for the game
         //rotten looking to say the least.
         public void SetupGameLayout() {
@@ -535,9 +640,14 @@ namespace CROSSPLATFORM2DGAME {
             //this will hold the map background and enemies
             mapLayout = new AbsoluteLayout {
                 BackgroundColor = Colors.LightGreen,
-                WidthRequest = 800,
-                HeightRequest = 400
+                WidthRequest = 3200,
+                HeightRequest = 1600,
+               
+
             };
+
+            mapLayoutWidth = mapLayout.WidthRequest;
+            mapLayoutHeight = mapLayout.HeightRequest;
 
             rotateLayout = new AbsoluteLayout {
                 BackgroundColor = Colors.Transparent,
@@ -609,7 +719,7 @@ namespace CROSSPLATFORM2DGAME {
 
         int timeElapsed = 0;
 
-        //LOGIC
+        //TIME TIMER LOGIC
         public void updateTimer(object o, EventArgs e) {
             timeElapsed++;
             
@@ -621,15 +731,29 @@ namespace CROSSPLATFORM2DGAME {
                     }
                 }
             }
+
+            
             //timerLabel.Text = $"{minutes:D2}:{seconds:D2}";
         }
 
-        //UI
+        //TIME TIMER UI
+        
+        int previousMinute = 0;
         public void updateTimerLabel() {
-            if(timeElapsed % 60 < 10)
+            int currentMinute = timeElapsed / 60;
+
+            if (timeElapsed % 60 < 10)
                 timerLabel.Text = "" + (timeElapsed / 60) + ":0" + (timeElapsed % 60);
             else
                 timerLabel.Text = ""+(timeElapsed / 60) + ":" + (timeElapsed%60);
+
+            //HAS TO BE DONE HERE BECAUSE MAIN THREAD INVOKE IS WHATS NEEDED.
+            if (timeElapsed % 60 == 0 && timeElapsed >= 60 && previousMinute < currentMinute) {
+                previousMinute = currentMinute;
+                currentMinute++;
+                mg.spawnEnemies(timeElapsed / 60 + 3);
+                mg.spawnItems();
+            }
         }
 
         public void startTimeTimer() {
@@ -701,7 +825,7 @@ namespace CROSSPLATFORM2DGAME {
                     break;
             }
 
-            if(invincibleFrame > 0) {
+            if (invincibleFrame > 0) {
                 if (!healthInvulnerable) {
                     h1.Source = "heart2.png";
                     h2.Source = "heart2.png";
@@ -710,7 +834,7 @@ namespace CROSSPLATFORM2DGAME {
                     h5.Source = "heart2.png";
                     healthInvulnerable = true;
                 }
-            }else if (healthInvulnerable) {
+            } else if (healthInvulnerable) {
                 h1.Source = "heart1.png";
                 h2.Source = "heart1.png";
                 h3.Source = "heart1.png";
@@ -718,7 +842,6 @@ namespace CROSSPLATFORM2DGAME {
                 h5.Source = "heart1.png";
                 healthInvulnerable = false;
             }
-
         }
 
         public void setUpHealthLayout() {
