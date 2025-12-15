@@ -42,12 +42,14 @@ namespace CROSSPLATFORM2DGAME {
 
         AbsoluteLayout fuelLayout;
         BoxView fuelBar;
+        Label fuelLabel;
 
         AbsoluteLayout healthLayout;
         Image h1, h2, h3, h4, h5;
 
         AbsoluteLayout boostLayout;
         BoxView boostBar;
+        Label boostLabel;
 
         AbsoluteLayout timerLayout;
         Label timerLabel;
@@ -60,11 +62,9 @@ namespace CROSSPLATFORM2DGAME {
 
         //GAME OBJECTS
         player myP;
-        enemy enemyTest;
-        enemy enemyTest2;
         //List<enemy> enemies;
 
-        wallObject wallTest;
+       // wallObject wallTest;
         lootObject lootTest;
         fuelObject fuelTest;
         List<gameObject> toRemove;
@@ -277,19 +277,33 @@ namespace CROSSPLATFORM2DGAME {
                         myP.addFuel();
                         toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
                         OBBHandler.staticOBBs.RemoveAt(i);
+                        mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
                     }
                     //LOOT PICKUP DETECTION
                     else if (OBBHandler.staticOBBs[i].objectType == "loot") {
                         score += 200;
                         toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
                         OBBHandler.staticOBBs.RemoveAt(i);
+                        mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
                     }
                     //WALL COLLISION
                     else if (OBBHandler.staticOBBs[i].objectType == "wall") {
                         collision = true;
                         backFrame = 60;
-                        
+
+                    } else if (OBBHandler.staticOBBs[i].objectType == "health") {
+                        if (myP.lives < 5) {
+                            myP.lives += 2;
+                            if (myP.lives > 5) {
+                                myP.lives = 5;
+                            }
+                            mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
+                            toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
+                            OBBHandler.staticOBBs.RemoveAt(i);
+                        }
                     }
+
+                   
                 }
             }
 
@@ -344,20 +358,15 @@ namespace CROSSPLATFORM2DGAME {
                 invincibleFrame = 0;
                 invincibleSkin = false;
             }
-
-            
-
-            //collisionJustHappened = false; // reset for next frame
-
-            // OBB UPDATES
+            // OBB UPDATE
             myP.objectOBB.Update(new Vector2(playerX - (float)xp, playerY - (float)yp), rp * Math.PI / 180.0);
-            //enemy is rotated -rp to keep it aligned with the map layout rotation
-            //enemyTest.objectOBB.Update(new Vector2(enemyTest.enemyOBBCenterX, enemyTest.enemyOBBCenterY), -rp * Math.PI / 180.0);
+           
             for (int i = 0; i < mg.enemies.Count; i++) {
                 mg.enemies[i].update(playerX - (float)xp, playerY - (float)yp);
             }
 
-
+            //dont know why everything is tabbed forward.
+            //will tab back when cleaning code.
                 //UI UPDATES
                 //SINCE GameTimer_Elapsed IS A BACKGROUND THREAD WE MUST INVOKE ON MAIN THREAD TO UPDATE UI ELEMENTS
                 MainThread.BeginInvokeOnMainThread(() => {
@@ -373,16 +382,17 @@ namespace CROSSPLATFORM2DGAME {
                     }
 
                 //TEST OUTPUTS
+                /*
                     placeHolder.Text = $"Speed: {speed:F2} Accel: {acceleration:F2} Boost: {boostMultiplier:F1} Fuel {myP.fuel}";
                     OBBPlaceHolder.Text = $"OBB Center: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
                         $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
                         $"Rotation: {rp:F2}°";
 
-                    /*
+                    
                     OBBPlaceHolder2.Text = $"OBB Center: ({enemyTest.objectOBB.Center.X:F2}, {enemyTest.objectOBB.Center.Y:F2})\n" +
                         $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
                         $"Rotation: {rp:F2}°\nCollision: {collision}";
-                    */
+                    
                     if (wallTest != null && wallTest.objectOBB != null) {
                         OBBPlaceHolder2.Text = $"Wall OBB: ({wallTest.objectOBB.Center.X:F2}, {wallTest.objectOBB.Center.Y:F2})\n" +
                                                $"Player OBB: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
@@ -390,7 +400,7 @@ namespace CROSSPLATFORM2DGAME {
                                                $"Intersects: {myP.objectOBB.Intersects(wallTest.objectOBB)}\n" +
                                                $"ObjectType: {wallTest.objectOBB.objectType}";
                     }
-
+                */
 
                     //ACTUAL LAYOUT UPDATES
                     updateHealthLayout();
@@ -405,7 +415,7 @@ namespace CROSSPLATFORM2DGAME {
                     rotateLayout.Rotation = rp;
 
                     if (invincibleSkin) { //we use needToChange to ensure that it only changes once per state.
-                                          //not every frame per strate.
+                                          //not every frame per state.
                         if (needToChange == 1) {
                             myP.changeImage("car41.png");
                             needToChange = 0;
@@ -522,34 +532,10 @@ namespace CROSSPLATFORM2DGAME {
                         gameLayout.Children.Add(gameOverLayout);
                         gameLayout.Children.Add(statsLayout);
 
-                        //gameLayout.Children.Add(startLayout);
-
                         //CREATE GAME OBJECTS HERE AS NOW THE MAPLAYOUT IS PROPERLY SET UP AND WE HAVE VALID WIDTH/HEIGHT VALUES
                         myP = new player();
-
-                        /*
-                        enemyTest = new enemy(100,100);
-                        enemyTest2 = new enemy(300, 300);
-
-                        fuelTest = new fuelObject(300,300);
-                        lootTest = new lootObject(500, 200);
-                        wallTest = new wallObject(600, 300);
-
-                        enemies.Add(enemyTest);
-                        enemies.Add(enemyTest2);*/
-
                         //ADD GAME OBJECTS TO LAYOUTS
                         gameLayout.Children.Add(myP.gameObjectLayout);// this is unique. the rest should be added to mapLayout
-
-                        /*
-                        mapLayout.Children.Add(enemyTest2.gameObjectLayout);
-                        mapLayout.Children.Add(enemyTest.gameObjectLayout);
-                        mapLayout.Children.Add(fuelTest.gameObjectLayout);
-                        mapLayout.Children.Add(lootTest.gameObjectLayout);
-
-                        mapLayout.Children.Add(wallTest.gameObjectLayout);
-                        */
-
                         //We set this up here the center of mapLayout is now valid!
                         myP.setUpOBB(new Vector2(playerX, playerY), (float)myP.imageWidth - 8, (float)myP.imageHeight - 7, 0);
                         //myP.setUpOBB(new Vector2(playerX, playerY),32, 70, 0);
@@ -559,19 +545,11 @@ namespace CROSSPLATFORM2DGAME {
                         rotateLayout.IsVisible = false;
                         myP.gameObjectLayout.IsVisible = false;
                         
-                        /*
-                        setUpTimer();
-                        startTimeTimer();
-                        */
-
-
                         //DisplayAlert("Debug", $"gameLayout measured size: {gameLayout.Width} x {gameLayout.Height}", "OK");
                     }
                 };
 
-            } else {
-                //HERE WE RE-ASSIGN SIZES SO THINGS STAY CENTERED.
-            }
+            } 
 
         }
 
@@ -808,17 +786,34 @@ namespace CROSSPLATFORM2DGAME {
         bool healthInvulnerable = false;
         public void updateHealthLayout() {
             switch (myP.lives) {
+                case 5:
+                    h5.IsVisible = true;
+                    h4.IsVisible = true;
+                    h3.IsVisible = true;
+                    h2.IsVisible = true;
+                    h1.IsVisible = true;
+                    break;
                 case 4:
                     h5.IsVisible = false;
+                    h4.IsVisible = true;
+                    h3.IsVisible = true;
+                    h2.IsVisible = true;
+                    h1.IsVisible = true;
                     break;
                 case 3:
                     h4.IsVisible = false;
+                    h3.IsVisible = true;
+                    h2.IsVisible = true;
+                    h1.IsVisible = true;
                     break;
                 case 2:
                     h3.IsVisible = false;
+                    h2.IsVisible = true;
+                    h1.IsVisible = true;
                     break;
                 case 1:
                     h2.IsVisible = false;
+                    h1.IsVisible = true;
                     break;
                 case 0:
                     h1.IsVisible = false;
@@ -901,15 +896,29 @@ namespace CROSSPLATFORM2DGAME {
                 HeightRequest = maxBarHeight
             };
 
+            fuelLabel = new Label {
+                Text = "FUE",
+                FontFamily = "Consolas",
+                FontSize = 14,
+                TextColor = Colors.White,
+                BackgroundColor = Colors.Transparent,
+                WidthRequest = fuelLayout.WidthRequest,
+                HeightRequest = 20,
+                HorizontalTextAlignment = TextAlignment.Center,
+                VerticalTextAlignment = TextAlignment.Center
+            };
+
             AbsoluteLayout.SetLayoutBounds(fuelBar, new Rect(0, 0, fuelBar.WidthRequest, fuelBar.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(fuelBar, AbsoluteLayoutFlags.None);
 
+            AbsoluteLayout.SetLayoutBounds(fuelLabel, new Rect(0, fuelBar.HeightRequest, fuelLayout.WidthRequest, 20));
+            AbsoluteLayout.SetLayoutFlags(fuelLabel, AbsoluteLayoutFlags.None);
             //AbsoluteLayout.SetLayoutBounds(fuelLayout, new Rect(.95, .95, fuelLayout.WidthRequest, fuelLayout.HeightRequest));
             AbsoluteLayout.SetLayoutBounds(fuelLayout, new Rect(gameLayoutWidth * .90, gameLayoutHeight * 0.48, fuelLayout.WidthRequest, fuelLayout.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(fuelLayout, AbsoluteLayoutFlags.None);
         
             fuelLayout.Children.Add(fuelBar);
-
+            fuelLayout.Children.Add(fuelLabel);
             //fuelBar.Rotation += 180;
             //fuelLayout.Rotation += 180;
         }
