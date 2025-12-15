@@ -26,8 +26,8 @@ namespace CROSSPLATFORM2DGAME {
 
         AbsoluteLayout gameLayout;
         AbsoluteLayout mapLayout;
-        double mapLayoutWidth = 0;
-        double mapLayoutHeight = 0;
+        public static double mapLayoutWidth = 0;
+        public static double mapLayoutHeight = 0;
 
         AbsoluteLayout rotateLayout;
 
@@ -39,6 +39,7 @@ namespace CROSSPLATFORM2DGAME {
         public static int score = 0; //static because it gets added to from within other objects when they die.
 
         AbsoluteLayout statsLayout;
+        Label scoreLabel;
 
         AbsoluteLayout fuelLayout;
         BoxView fuelBar;
@@ -79,6 +80,7 @@ namespace CROSSPLATFORM2DGAME {
 
         public MainPage() {
             InitializeComponent();
+            this.BackgroundColor = Colors.DeepSkyBlue;          
             keyHandler = new KeyHandler();
             toRemove = new List<gameObject>();
         }
@@ -164,6 +166,7 @@ namespace CROSSPLATFORM2DGAME {
         int invincibleFrame = 0;
         int needToChange = 0;
 
+        //THE GAME LOOP
         public void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
             double rad = rp * Math.PI / 180.0; // convert rotation to radians
 
@@ -265,8 +268,6 @@ namespace CROSSPLATFORM2DGAME {
             double dx = speed * Math.Sin(rad);
             double dy = speed * Math.Cos(rad);
 
-           
-
             bool collision = false;
             //STATIC COLLISION DETECTION
             for (int i = OBBHandler.staticOBBs.Count - 1; i >= 0; i--) {
@@ -327,6 +328,25 @@ namespace CROSSPLATFORM2DGAME {
                     }
                 }
             }
+
+            //PLAYER OUT OF BOUNDS CHECK
+            //We use Corners instead of OBB.intersects here because well 
+            //its out of bounds general, its x and y are in a certain range.
+            bool outOfBounds = false;
+            foreach (var corner in myP.objectOBB.Corners) {
+                if (corner.X < 0 || corner.X > mapLayoutWidth || corner.Y < 0 || corner.Y > mapLayoutHeight) {
+                    outOfBounds = true;
+                    break;
+                }
+            }
+
+            //add collision if out of bounds
+            if (outOfBounds) {
+                
+                collision = true;
+                backFrame = 60;
+            }
+
             //we do this so that it only calculates collision math once.
             if (collision) {
                 if (Math.Abs(speed) > 0 && backFrame == 60) { //collisionJustHappened ensures we dont continously invert speed every frame
@@ -407,6 +427,7 @@ namespace CROSSPLATFORM2DGAME {
                     updateFuelMeter(myP.fuel);
                     updateTimerLabel(); // also updates boost VARIABLE but not LABEL.
                     updateBoostMeter(myP.boostAmount);
+                    updateScoreLabel();
 
                     //it would be nice to have this in its own class but  the weird
                     //mix between player and MainPage is forced upon me by the layout system, curses.
@@ -507,14 +528,19 @@ namespace CROSSPLATFORM2DGAME {
                         setUpTimerLayout();
                         setUpBoostLayout();
                         setUpHealthLayout();
+                        setUpScoreLabel();
 
                         //TO BE DELETED LATER - JUST FOR TESTING OBB VALUES
+                        /*
                         AbsoluteLayout.SetLayoutBounds(OBBPlaceHolder, new Rect(0, 25, statsLayout.WidthRequest, statsLayout.HeightRequest));
                         AbsoluteLayout.SetLayoutFlags(OBBPlaceHolder, AbsoluteLayoutFlags.None);
 
                         AbsoluteLayout.SetLayoutBounds(OBBPlaceHolder2, new Rect(0, 75, statsLayout.WidthRequest, statsLayout.HeightRequest));
                         AbsoluteLayout.SetLayoutFlags(OBBPlaceHolder2, AbsoluteLayoutFlags.None);
 
+                        */
+
+                        statsLayout.Children.Add(scoreLabel);
                         statsLayout.Children.Add(fuelLayout);
                         statsLayout.Children.Add(boostLayout);
                         statsLayout.Children.Add(healthLayout);
@@ -672,6 +698,28 @@ namespace CROSSPLATFORM2DGAME {
             gameLayoutHeight = gameLayout.HeightRequest;
         }
 
+        public void updateScoreLabel() {
+            scoreLabel.Text = "SCORE: " + score;
+        }
+
+        public void setUpScoreLabel() {
+            scoreLabel = new Label {
+                FontFamily = "Consolas",
+                Text = "SCORE: 0",
+                FontSize = 18,
+                TextColor = Colors.White,
+                BackgroundColor = Colors.Transparent,
+                WidthRequest = 150,
+                HeightRequest = 30,
+                HorizontalTextAlignment = TextAlignment.Center,
+                VerticalTextAlignment = TextAlignment.Center
+            };
+
+            AbsoluteLayout.SetLayoutBounds(scoreLabel, new Rect(0.001, 0.005, scoreLabel.WidthRequest, scoreLabel.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(scoreLabel, AbsoluteLayoutFlags.PositionProportional);
+
+        }
+
         public void setUpTimerLayout() {
             timerLayout = new AbsoluteLayout {
                 BackgroundColor = Colors.Transparent,
@@ -755,13 +803,29 @@ namespace CROSSPLATFORM2DGAME {
                 HeightRequest = maxBarHeight
             };
 
+            boostLabel = new Label {
+                Text = "BOOST",
+                FontFamily = "Consolas",
+                FontSize = 14,
+                TextColor = Colors.White,
+                BackgroundColor = Colors.Transparent,
+                WidthRequest = boostLayout.WidthRequest,
+                HeightRequest = 20,
+                HorizontalTextAlignment = TextAlignment.Center,
+                VerticalTextAlignment = TextAlignment.Center
+            };
+
             AbsoluteLayout.SetLayoutBounds(boostBar, new Rect(0, 0, boostBar.WidthRequest, boostBar.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(boostBar, AbsoluteLayoutFlags.None);
+
+            AbsoluteLayout.SetLayoutBounds(boostLabel, new Rect(0, boostBar.HeightRequest, boostLayout.WidthRequest, 20));
+            AbsoluteLayout.SetLayoutFlags(boostLabel, AbsoluteLayoutFlags.None);
 
             //AbsoluteLayout.SetLayoutBounds(fuelLayout, new Rect(.95, .95, fuelLayout.WidthRequest, fuelLayout.HeightRequest));
             AbsoluteLayout.SetLayoutBounds(boostLayout, new Rect(gameLayoutWidth * .85, gameLayoutHeight * 0.48, boostLayout.WidthRequest, boostLayout.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(boostLayout, AbsoluteLayoutFlags.None);
 
+            boostLayout.Children.Add(boostLabel);
             boostLayout.Children.Add(boostBar);
 
             //fuelBar.Rotation += 180;
@@ -785,6 +849,9 @@ namespace CROSSPLATFORM2DGAME {
 
         bool healthInvulnerable = false;
         public void updateHealthLayout() {
+            //we need this switch because
+            //when we regain health we need to make hearts visible again     
+
             switch (myP.lives) {
                 case 5:
                     h5.IsVisible = true;
@@ -897,7 +964,7 @@ namespace CROSSPLATFORM2DGAME {
             };
 
             fuelLabel = new Label {
-                Text = "FUE",
+                Text = "FUEL",
                 FontFamily = "Consolas",
                 FontSize = 14,
                 TextColor = Colors.White,
@@ -937,5 +1004,5 @@ namespace CROSSPLATFORM2DGAME {
                 fuelHeight
             )); // Maui deciding to use proportional layout flags even if i specify not to is seriously annoying
         }       // hate this, highly unintuitive system at all.
-    }
+    }           // maybe it is i who is highly unintuitive.
 }

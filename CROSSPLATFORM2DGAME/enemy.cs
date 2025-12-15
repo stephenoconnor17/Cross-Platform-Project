@@ -73,7 +73,7 @@ namespace CROSSPLATFORM2DGAME {
         private double targetCenterY;
         private int updateTargetCounter = 0;
         private int updateTargetDelay = 30; // Update every 30 frames (~0.5 sec)
-
+        int turnAroundFrame = 0;
         public void update(double playerCenterX, double playerCenterY) {
             // Only update target periodically
             updateTargetCounter++;
@@ -132,18 +132,49 @@ namespace CROSSPLATFORM2DGAME {
                     if (OBBHandler.staticOBBs[i].objectType == "wall") {
                         enemyCollision = true;
 
-                        // Calculate angle AWAY from the other enemy
+                        // Calculate angle AWAY from the other object
                         gameObject otherObject = OBBHandler.staticOBBs[i].thisObject;
                         double angleAway = Math.Atan2(this.objectOBB.Center.Y  - otherObject.objectOBB.Center.Y, this.objectOBB.Center.X - otherObject.objectOBB.Center.X) * 180.0 / Math.PI;
                         angleAway += 90.0;
                         avoidanceAngle = NormalizeAngle(angleAway);
-                        break; // Only avoid one enemy at a time
+                        break;
                     }
                 }
             }
 
+            //ENEMY OUT OF BOUND CHECK
+            bool outOfBounds = false;
+
+            foreach (var corner in this.objectOBB.Corners) {
+                if (corner.X < 0 ||
+                    corner.X > MainPage.mapLayoutWidth ||
+                    corner.Y < 0 ||
+                    corner.Y > MainPage.mapLayoutHeight) {
+                    outOfBounds = true;
+                    break;
+                }
+            }
+            
+            if (outOfBounds && turnAroundFrame <= 0) {
+                // Instantly turn around
+                this.rotation = NormalizeAngle(this.rotation + 180.0);
+
+                turnAroundFrame = 30;// frames to prevent immediate re-trigger
+
+                //ensuring enemy OBB is back in bounds
+                enemyOBBCenterX += (float)(Math.Sin(this.rotation * Math.PI / 180.0) * 4);
+                enemyOBBCenterY -= (float)(Math.Cos(this.rotation * Math.PI / 180.0) * 4);
+
+                
+                enemyCollision = false;
+            }
+
+            if(turnAroundFrame > 0) {
+                turnAroundFrame--;
+            }
+
             double rad = 0;
-            // --- COLLISION ---
+            // COLLISION AND MOVEMENT LOGIC
             if (this.fuel > 0) {
 
 
@@ -188,6 +219,7 @@ namespace CROSSPLATFORM2DGAME {
                 dx = speed * Math.Sin(rad);
                 dy = -speed * Math.Cos(rad);
                 
+                //when dead
                 //death calculation for enemy here
                 if(speed <= 0 && this.fuel <= 0) {
 
