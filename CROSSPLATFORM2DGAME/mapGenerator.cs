@@ -126,8 +126,8 @@ namespace CROSSPLATFORM2DGAME {
         public void spawnEnemies(int amount) {
             var random = new Random();
             for (int i = 0; i < amount; i++) {
-                double rx = random.NextDouble() * (this.maxWidth);
-                double ry = random.NextDouble() * (this.maxHeight);
+                double rx = random.NextDouble() * (this.maxWidth - 144);
+                double ry = random.NextDouble() * (this.maxHeight - 144);
                 //No need to check enemy spawn against anything. Doesnt properly collide with anything other than player.
                
                 enemy enemyTest = new enemy(rx, ry);
@@ -149,8 +149,8 @@ namespace CROSSPLATFORM2DGAME {
 
                 do {
                     validPosition = true;
-                    rx = random.NextDouble() * (this.maxWidth - 144);
-                    ry = random.NextDouble() * (this.maxHeight - 144);
+                    rx = 72 + random.NextDouble() * (this.maxWidth - 144);
+                    ry = 72 + random.NextDouble() * (this.maxHeight - 144);
 
                     // Check if position is on the player spawn
                     if ((Math.Abs(rx - ((this.maxWidth / 2) - 96)) < 48 && Math.Abs(ry - ((this.maxHeight / 2) - 96)) < 48)) {
@@ -171,7 +171,9 @@ namespace CROSSPLATFORM2DGAME {
                 wallObject wallTest = new wallObject(rx, ry);
                 objectIndexMap.Add(wallTest, objectLocation.Count - 1);
                 this.mapLayout.Children.Add(wallTest.gameObjectLayout);
-            }//FUEL LOOP
+            }
+            
+            //FUEL LOOP
             for (int i = 0; i < 10; i++) {
                 double rx, ry;
                 bool validPosition;
@@ -246,31 +248,8 @@ namespace CROSSPLATFORM2DGAME {
                 this.mapLayout.Children.Add(healthTest.gameObjectLayout);
             }
 
-            //ENEMY LOOP
-            for (int i = 0; i < 3; i++) {
-                double rx, ry;
-                bool validPosition;
-
-                do {
-                    validPosition = true;
-                    rx = random.NextDouble() * (this.maxWidth);
-                    ry = random.NextDouble() * (this.maxHeight);
-
-                    // Check against all existing objects
-                    foreach (var loc in objectLocation) {
-                        if (Math.Abs(rx - loc.x) < 48 && Math.Abs(ry - loc.y) < 48) {
-                            validPosition = false;
-                            break;
-                        }
-                    }
-                } while (!validPosition);
-
-                objectLocation.Add((rx, ry));
-                enemy enemyTest = new enemy(rx, ry);
-                enemies.Add(enemyTest);
-                this.mapLayout.Children.Add(enemyTest.gameObjectLayout);
-            }
-
+            //ENEMY SPAWN
+            spawnEnemies(3);
 
         }
 

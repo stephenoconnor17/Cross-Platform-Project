@@ -6,10 +6,14 @@ using System.Data;
 using System.Diagnostics;
 using System.Numerics;
 using System.Timers;
+using Plugin.Maui.Audio;
 
 
 namespace CROSSPLATFORM2DGAME {
     public partial class MainPage : ContentPage {
+
+        //AUDIO
+        private IAudioPlayer backgroundMusicPlayer;
 
         //KEYHANDLER
         KeyHandler keyHandler;
@@ -17,12 +21,14 @@ namespace CROSSPLATFORM2DGAME {
         //GAME TIMER
         System.Timers.Timer gameTimer;
 
+        //MAP GENERATOR
+        mapGenerator mg;
+
         //LAYOUT / VIEWS
         AbsoluteLayout startLayout;
         Label startTitle;
         Button startButton;
         Button settingsButton;
-
 
         AbsoluteLayout gameLayout;
         AbsoluteLayout mapLayout;
@@ -35,6 +41,8 @@ namespace CROSSPLATFORM2DGAME {
         Label gameOverLabel1;
         Label gameOverLabel2;
         Label gameOverLabel3;
+        Button gameOverButton;
+        Button gameOverButton2;
         int highestScore = 0;
         public static int score = 0; //static because it gets added to from within other objects when they die.
 
@@ -59,8 +67,7 @@ namespace CROSSPLATFORM2DGAME {
         Label placeHolder;
         Label OBBPlaceHolder;
         Label OBBPlaceHolder2;
-
-
+        
         //GAME OBJECTS
         player myP;
         //List<enemy> enemies;
@@ -75,14 +82,12 @@ namespace CROSSPLATFORM2DGAME {
         public static double gameLayoutHeight;
         public float playerX = 0;
         public float playerY = 0;
-
-
-
         public MainPage() {
             InitializeComponent();
             this.BackgroundColor = Colors.DeepSkyBlue;          
             keyHandler = new KeyHandler();
             toRemove = new List<gameObject>();
+
         }
 
         //SET UP GAME TIMER
@@ -92,12 +97,106 @@ namespace CROSSPLATFORM2DGAME {
             gameTimer.Start();
         }
 
+
+
+        public void restartGame() {
+            // Stop timers FIRST - this is critical to prevent race conditions
+            if (gameTimer != null && gameTimer.Enabled) {
+                gameTimer.Stop();
+            }
+            if (timeTimer != null && timeTimer.Enabled) {
+                timeTimer.Stop();
+            }
+
+            // Wait a moment to ensure the game loop has fully stopped
+            System.Threading.Thread.Sleep(50); // Give the timer threads time to finish
+
+            // Reset game state variables
+            gameOver = false;
+            xp = 0;
+            yp = 0;
+            rp = 0;
+            speed = 0.0;
+            acceleration = 0.0;
+            boostMultiplier = 1.0;
+            isBoosting = false;
+            backFrame = 0;
+            outOfBoundsFrame = 0;
+            invincibleSkin = false;
+            invincibleFrame = 0;
+            needToChange = 0;
+            timeElapsed = 0;
+            previousMinute = 0;
+
+            // Update high score if needed
+            if (score > highestScore) {
+                highestScore = score;
+                gameOverLabel2.Text = "HIGH SCORE: " + highestScore;
+            }
+
+            // Reset score
+            score = 0;
+
+            // Clear existing game objects from mapLayout
+            if (mg != null) {
+                // Clear OBB lists BEFORE clearing enemies to prevent null reference
+                OBBHandler.staticOBBs.Clear();
+                OBBHandler.movingOBBs.Clear();
+
+                // Now clear enemies
+                mg.enemies.Clear();
+
+                // Clear map layout children
+                mapLayout.Children.Clear();
+            }
+
+            // Clear toRemove list
+            toRemove.Clear();
+
+            // Reset player
+            if (myP != null) {
+                myP.fuel = 100;
+                myP.boostAmount = 100;
+                myP.lives = 5;
+                myP.changeImage("car31.png");
+
+                // Reset player OBB position
+                myP.objectOBB.Update(new Vector2(playerX, playerY), 0);
+            }
+
+            // Recreate map generator with fresh state
+            mg = new mapGenerator(mapLayout, mapLayoutWidth, mapLayoutHeight);
+
+            // Reset UI layouts
+            mapLayout.TranslationX = 0;
+            mapLayout.TranslationY = 0;
+            rotateLayout.Rotation = 0;
+
+            // Hide game over layout
+            gameOverLayout.IsVisible = false;
+            statsLayout.Opacity = 1.0;
+            statsLayout.InputTransparent = false; // Restore normal input
+            timerLayout.Opacity = 1.0;
+
+            // Update all UI elements to initial state
+            updateHealthLayout();
+            updateFuelMeter(myP.fuel);
+            updateBoostMeter(myP.boostAmount);
+            updateScoreLabel();
+            timerLabel.Text = "00:00";
+
+            // Restart timers LAST - after everything is reset
+            setUpTimer();
+            startTimeTimer();
+        }
+
         public void setUpGameOverLayout() {
             gameOverLayout = new AbsoluteLayout {
                 BackgroundColor = Color.FromArgb("#80000000"),
                 WidthRequest = gameLayoutWidth,
                 HeightRequest = gameLayoutHeight,
-                Opacity = 0.8
+                Opacity = 0.8,
+                InputTransparent = false
             };
 
             gameOverLabel1 = new Label {
@@ -117,7 +216,35 @@ namespace CROSSPLATFORM2DGAME {
                 HeightRequest = gameLayoutHeight / 7,
                 Text = "SCORE: ",
                 FontFamily = "Consolas"
+
             };
+
+            gameOverButton = new Button {
+                WidthRequest = gameLayoutWidth / 8,
+                HeightRequest = gameLayoutHeight / 16,
+                BackgroundColor = Colors.Transparent,
+                TextColor = Colors.White,
+                Text = "RESTART",
+                FontFamily = "Consolas",
+                InputTransparent = false
+            };
+
+            gameOverButton2 = new Button {
+                WidthRequest = gameLayoutWidth / 8,
+                HeightRequest = gameLayoutHeight / 16,
+                BackgroundColor = Colors.Transparent,
+                TextColor = Colors.White,
+                Text = "EXIT",
+                FontFamily = "Consolas",
+                InputTransparent = false
+            };
+
+
+            AbsoluteLayout.SetLayoutBounds(gameOverButton, new Rect(0.4, 0.75, gameOverButton.WidthRequest, gameOverButton.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(gameOverButton, AbsoluteLayoutFlags.PositionProportional);
+
+            AbsoluteLayout.SetLayoutBounds(gameOverButton2, new Rect(0.6, 0.75, gameOverButton2.WidthRequest, gameOverButton2.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(gameOverButton2, AbsoluteLayoutFlags.PositionProportional);
 
             AbsoluteLayout.SetLayoutBounds(gameOverLayout, new Rect(0, 0, gameOverLayout.WidthRequest, gameOverLayout.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(gameOverLayout, AbsoluteLayoutFlags.None);
@@ -128,9 +255,12 @@ namespace CROSSPLATFORM2DGAME {
             AbsoluteLayout.SetLayoutFlags(gameOverLabel2, AbsoluteLayoutFlags.PositionProportional);
             AbsoluteLayout.SetLayoutBounds(gameOverLabel3, new Rect(0.5, 0.6, gameOverLabel3.WidthRequest, gameOverLabel3.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(gameOverLabel3, AbsoluteLayoutFlags.PositionProportional);
+
             gameOverLayout.Children.Add(gameOverLabel1);
             gameOverLayout.Children.Add(gameOverLabel2);
             gameOverLayout.Children.Add(gameOverLabel3);
+            gameOverLayout.Children.Add(gameOverButton);
+            gameOverLayout.Children.Add(gameOverButton2);
 
             gameOverLayout.IsVisible = false;
         }
@@ -140,9 +270,7 @@ namespace CROSSPLATFORM2DGAME {
         public void endGame() {
             gameTimer.Stop();
             timeTimer.Stop();
-
-            
-
+        
             gameOver = true;
         }
 
@@ -161,6 +289,7 @@ namespace CROSSPLATFORM2DGAME {
         double boostMaxSpeed = 7.0;
         bool isBoosting = false;
         int backFrame = 0;
+        int outOfBoundsFrame = 0;
 
         bool invincibleSkin = false;
         int invincibleFrame = 0;
@@ -182,8 +311,6 @@ namespace CROSSPLATFORM2DGAME {
                 endGame();
               
             }
-
-            
 
             // --- INPUT → ACCELERATION ------------------
             if (myP.fuel > 0) { //only allow drive if got fuel
@@ -334,17 +461,22 @@ namespace CROSSPLATFORM2DGAME {
             //its out of bounds general, its x and y are in a certain range.
             bool outOfBounds = false;
             foreach (var corner in myP.objectOBB.Corners) {
-                if (corner.X < 0 || corner.X > mapLayoutWidth || corner.Y < 0 || corner.Y > mapLayoutHeight) {
+                if ((corner.X < 0 || corner.X > mapLayoutWidth || corner.Y < 0 || corner.Y > mapLayoutHeight) && outOfBoundsFrame <= 0) {
                     outOfBounds = true;
+                    outOfBoundsFrame = 15;
                     break;
                 }
             }
 
             //add collision if out of bounds
-            if (outOfBounds) {
+            if (outOfBounds && outOfBoundsFrame == 15) {
                 
                 collision = true;
                 backFrame = 60;
+            }
+
+            if(outOfBoundsFrame > 0) {
+                outOfBoundsFrame--;
             }
 
             //we do this so that it only calculates collision math once.
@@ -398,6 +530,7 @@ namespace CROSSPLATFORM2DGAME {
 
                         gameOverLabel3.Text = "Score: " + score;
 
+                        statsLayout.InputTransparent = true;
                         gameOverLayout.IsVisible = true;
                     }
 
@@ -486,11 +619,15 @@ namespace CROSSPLATFORM2DGAME {
             //we use sizeChanged events on the layouts to double triple ensure we have valid width/height values before using them.
 
             base.OnAppearing();
-            #if WINDOWS
+
+            backgroundMusicPlayer = AudioManager.Current.CreatePlayer(await FileSystem.OpenAppPackageFileAsync("SONG1.mp3"));
+            backgroundMusicPlayer.Loop = true;
+            backgroundMusicPlayer.Play();
+#if WINDOWS
             if (this.Window != null) {
                 KeyHook.Attach(this.Window, keyHandler);
             }
-            #endif
+#endif
 
             // Initialize layouts and images
 
@@ -554,6 +691,23 @@ namespace CROSSPLATFORM2DGAME {
                         setUpStartLayout();
                         setUpGameOverLayout();
 
+                        gameOverButton.Clicked += (sender, args) => {
+                            restartGame();
+                        };
+
+                        gameOverButton2.Clicked += (sender, args) => {
+                            if (gameTimer != null) gameTimer.Stop();
+                            if (timeTimer != null) timeTimer.Stop();
+
+                            // Return to start screen
+                            gameOverLayout.IsVisible = false;
+                            mapLayout.IsVisible = false;
+                            statsLayout.IsVisible = false;
+                            rotateLayout.IsVisible = false;
+                            myP.gameObjectLayout.IsVisible = false;
+                            startLayout.IsVisible = true;
+                        };
+
                         gameLayout.Children.Add(startLayout);
                         gameLayout.Children.Add(gameOverLayout);
                         gameLayout.Children.Add(statsLayout);
@@ -563,6 +717,7 @@ namespace CROSSPLATFORM2DGAME {
                         //ADD GAME OBJECTS TO LAYOUTS
                         gameLayout.Children.Add(myP.gameObjectLayout);// this is unique. the rest should be added to mapLayout
                         //We set this up here the center of mapLayout is now valid!
+                        statsLayout.InputTransparent = true; //so clicks go through to gameOverLayout when visible
                         myP.setUpOBB(new Vector2(playerX, playerY), (float)myP.imageWidth - 8, (float)myP.imageHeight - 7, 0);
                         //myP.setUpOBB(new Vector2(playerX, playerY),32, 70, 0);
                         mapLayout.IsVisible = false;
@@ -597,7 +752,7 @@ namespace CROSSPLATFORM2DGAME {
             double fontSize = shortestSide * 0.20; // 8% of screen
 
             startTitle = new Label {
-                Text = "driv.r",
+                Text = "driv.r", //TITLE FOR THE Game ! 
                 FontFamily = "Consolas",
                 FontSize = fontSize
             };
@@ -616,14 +771,12 @@ namespace CROSSPLATFORM2DGAME {
             startLayout.Children.Add(startTitle);
             startLayout.Children.Add(startButton);
         }
-
-        mapGenerator mg;
-
         public void startButton_Clicked(object o, EventArgs e) {
             startLayout.IsVisible = false;
             rotateLayout.IsVisible = true;
             mapLayout.IsVisible = true;
             statsLayout.IsVisible = true;
+            statsLayout.InputTransparent = false; // ADD THIS - allow stats interaction during normal gameplay
             myP.gameObjectLayout.IsVisible = true;
 
             mg = new mapGenerator(mapLayout, mapLayoutWidth, mapLayoutHeight);
@@ -661,7 +814,7 @@ namespace CROSSPLATFORM2DGAME {
 
             //this will hold the stats like health fuel time etc
            
-
+            /*
             OBBPlaceHolder = new Label {
                 Text = "OBB Placeholder",
                 BackgroundColor = Colors.Transparent
@@ -670,6 +823,7 @@ namespace CROSSPLATFORM2DGAME {
             OBBPlaceHolder2 = new Label {
                 BackgroundColor = Colors.Transparent
             };
+            
 
             //place holder label for stats layout
             placeHolder = new Label {
@@ -677,6 +831,7 @@ namespace CROSSPLATFORM2DGAME {
                 BackgroundColor = Colors.Transparent
 
             };
+            */
 
             //this centers the map layout in the game layout
             AbsoluteLayout.SetLayoutBounds(mapLayout, new Rect(0.5, 0.5, mapLayout.WidthRequest, mapLayout.HeightRequest));
@@ -690,7 +845,7 @@ namespace CROSSPLATFORM2DGAME {
 
             gameLayout.Children.Add(statsLayout);
 
-            //this sets the content of the page to the game layout i.e the overarching layout
+            //this makes it so the content doesnt clip outside the game layout bounds
             gameLayout.IsClippedToBounds = true;
             Content = gameLayout;
 
@@ -757,13 +912,9 @@ namespace CROSSPLATFORM2DGAME {
                     }
                 }
             }
-
-            
-            //timerLabel.Text = $"{minutes:D2}:{seconds:D2}";
         }
 
         //TIME TIMER UI
-        
         int previousMinute = 0;
         public void updateTimerLabel() {
             int currentMinute = timeElapsed / 60;
@@ -935,7 +1086,6 @@ namespace CROSSPLATFORM2DGAME {
 
             AbsoluteLayout.SetLayoutBounds(healthLayout, new Rect(0.025, .90, healthLayout.WidthRequest, healthLayout.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(healthLayout, AbsoluteLayoutFlags.PositionProportional);
-
 
             AbsoluteLayout.SetLayoutBounds(h1, new Rect(0 ,0, 48, 48));
             AbsoluteLayout.SetLayoutBounds(h2, new Rect(healthLayout.WidthRequest / 5 * 1, 0, 48, 48));
