@@ -10,22 +10,27 @@ namespace CROSSPLATFORM2DGAME {
         private IAudioPlayer backgroundMusicPlayer;
         private string filename;
         private List<string> musicList;
-
-        public myAudioPlayer(string filename) {
-            this.filename = filename;
-            LoadSoundEffect();
-        }
+        double currentVolume = 1.0;
 
 
 
         public myAudioPlayer() { }
+
+        public async Task InitializeAsync(string filename) {
+            this.filename = filename;
+            backgroundMusicPlayer = AudioManager.Current.CreatePlayer(await FileSystem.OpenAppPackageFileAsync(filename));
+            backgroundMusicPlayer.Volume = currentVolume;
+
+        }
 
         public void setUpMusicList() {
             this.musicList = new List<string>();
         }
 
         public void setVolume(double volume) {
-            backgroundMusicPlayer.Volume = volume;
+            currentVolume = volume;
+            if (backgroundMusicPlayer != null)
+                backgroundMusicPlayer.Volume = currentVolume;
         }
 
         public void addToMusicList(string filename) {
@@ -38,6 +43,7 @@ namespace CROSSPLATFORM2DGAME {
                 return;
             }
             backgroundMusicPlayer = AudioManager.Current.CreatePlayer(FileSystem.OpenAppPackageFileAsync(musicList[indexer]).Result);
+            backgroundMusicPlayer.Volume = currentVolume;
             backgroundMusicPlayer.PlaybackEnded += (s, e) => playBack();
             backgroundMusicPlayer.Play();
 
@@ -54,6 +60,7 @@ namespace CROSSPLATFORM2DGAME {
                 
                 backgroundMusicPlayer = AudioManager.Current.CreatePlayer(FileSystem.OpenAppPackageFileAsync(musicList[indexer]).Result);
                 backgroundMusicPlayer.PlaybackEnded += (s, e) => playBack(); //recursion! I always thought it was a gimmick.
+                backgroundMusicPlayer.Volume = currentVolume;
                 backgroundMusicPlayer.Play();
             }
         }
@@ -63,9 +70,6 @@ namespace CROSSPLATFORM2DGAME {
         }
 
         //We have load here because we want a sound effect to be preloaded before playing it.
-        public async Task LoadSoundEffect() {
-            backgroundMusicPlayer = AudioManager.Current.CreatePlayer(await FileSystem.OpenAppPackageFileAsync(filename));
-        }
 
         public void PlaySoundEffect() {
             backgroundMusicPlayer.Play();

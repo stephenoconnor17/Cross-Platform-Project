@@ -12,8 +12,10 @@ using Plugin.Maui.Audio;
 namespace CROSSPLATFORM2DGAME {
     public partial class MainPage : ContentPage {
 
+
+        //VARIABLE INITIALIZATIONS
+
         //AUDIO
-        // private IAudioPlayer backgroundMusicPlayer;
         AudioHandler myAudioHandler;
 
         //KEYHANDLER
@@ -25,11 +27,20 @@ namespace CROSSPLATFORM2DGAME {
         //MAP GENERATOR
         mapGenerator mg;
 
-        //LAYOUT / VIEWS
+        //LAYOUT / VIEWS - UI ELEMENTS
         AbsoluteLayout startLayout;
         Label startTitle;
         Button startButton;
         Button settingsButton;
+
+        AbsoluteLayout settingsLayout;
+        Label settingsTitle;
+        Label musicLabel;
+        Label sfxLabel;
+        Button settingsBackButton;
+        Slider musicSlider;
+        Slider sfxSlider;
+        Button backToStartButton;
 
         AbsoluteLayout gameLayout;
         AbsoluteLayout mapLayout;
@@ -44,8 +55,6 @@ namespace CROSSPLATFORM2DGAME {
         Label gameOverLabel3;
         Button gameOverButton;
         Button gameOverButton2;
-        int highestScore = 0;
-        public static int score = 0; //static because it gets added to from within other objects when they die.
 
         AbsoluteLayout statsLayout;
         Label scoreLabel;
@@ -65,24 +74,18 @@ namespace CROSSPLATFORM2DGAME {
         Label timerLabel;
         System.Timers.Timer timeTimer;
 
-        Label placeHolder;
-        Label OBBPlaceHolder;
-        Label OBBPlaceHolder2;
-        
         //GAME OBJECTS
         player myP;
-        //List<enemy> enemies;
-
-       // wallObject wallTest;
-        lootObject lootTest;
-        fuelObject fuelTest;
+    
         List<gameObject> toRemove;
 
-        //VARIABLES
+        //VALUES
         public static double gameLayoutWidth;
         public static double gameLayoutHeight;
-        public float playerX = 0;
-        public float playerY = 0;
+        int highestScore = 0;
+        public static int score = 0; //static because it gets added to from within other objects when they die.
+        public float playerX = 0;//center of player on screen
+        public float playerY = 0;//here because of widths and lengths are based on maui events.
         public MainPage() {
             InitializeComponent();
             this.BackgroundColor = Colors.DeepSkyBlue;          
@@ -94,7 +97,7 @@ namespace CROSSPLATFORM2DGAME {
 
         
 
-        //SET UP GAME TIMER
+        //LOGIC - GAME TIMER STARTUP
         public void setUpTimer() {
             gameTimer = new System.Timers.Timer(16);
             gameTimer.Elapsed += GameTimer_Elapsed;
@@ -102,7 +105,7 @@ namespace CROSSPLATFORM2DGAME {
         }
 
 
-
+        //LOGIC - GAME RESTART LOGIC
         public void restartGame() {
             // Stop timers FIRST - this is critical to prevent race conditions
             if (gameTimer != null && gameTimer.Enabled) {
@@ -194,6 +197,7 @@ namespace CROSSPLATFORM2DGAME {
             startTimeTimer();
         }
 
+        //UI - GAME OVER SETUP
         public void setUpGameOverLayout() {
             gameOverLayout = new AbsoluteLayout {
                 BackgroundColor = Color.FromArgb("#80000000"),
@@ -269,8 +273,9 @@ namespace CROSSPLATFORM2DGAME {
             gameOverLayout.IsVisible = false;
         }
 
+
+        //LOGIC - END GAME FUNCTION
         bool gameOver = false;
-        //gameOver logic here!
         public void endGame() {
             gameTimer.Stop();
             timeTimer.Stop();
@@ -278,6 +283,8 @@ namespace CROSSPLATFORM2DGAME {
             gameOver = true;
         }
 
+
+        //LOGIC + UI - THE GAME LOOP
         //GAME LOOP VARIABLES
         private double xp = 0; // mapLayout X position
         private double yp = 0; // mapLayout Y position
@@ -608,6 +615,7 @@ namespace CROSSPLATFORM2DGAME {
                 });
         }
 
+        //LOGIC - PAUSE TIMERS ON PAGE DISAPPEAR
         protected override void OnDisappearing() {
             base.OnDisappearing();
             if (gameTimer != null) {
@@ -619,7 +627,7 @@ namespace CROSSPLATFORM2DGAME {
             }
         }
 
-        //INITIAL SETUP BEFORE STARTING GAME LOOP
+        //LOGIC - INITIAL SETUP BEFORE STARTING GAME LOOP
         bool onceOnAppearing = true; // because OnAppearing can be called many times, we only want to call it once!
         protected override async void OnAppearing() {
 
@@ -630,7 +638,7 @@ namespace CROSSPLATFORM2DGAME {
 
             base.OnAppearing();
 
-            
+            await myAudioHandler.InitializeAsync();
 #if WINDOWS
             if (this.Window != null) {
                 KeyHook.Attach(this.Window, keyHandler);
@@ -699,6 +707,7 @@ namespace CROSSPLATFORM2DGAME {
                         */
 
                         setUpStartLayout();
+                        setUpSettingsLayout();
                         setUpGameOverLayout();
 
                         gameOverButton.Clicked += (sender, args) => {
@@ -716,9 +725,11 @@ namespace CROSSPLATFORM2DGAME {
                             rotateLayout.IsVisible = false;
                             myP.gameObjectLayout.IsVisible = false;
                             startLayout.IsVisible = true;
+                            settingsLayout.IsVisible = false;
                         };
 
                         gameLayout.Children.Add(startLayout);
+                        gameLayout.Children.Add(settingsLayout);
                         gameLayout.Children.Add(gameOverLayout);
                         gameLayout.Children.Add(statsLayout);
 
@@ -744,6 +755,7 @@ namespace CROSSPLATFORM2DGAME {
 
         }
 
+        //UI - START LAYOUT SETUP
         public void setUpStartLayout() {
             startLayout = new AbsoluteLayout {
                 WidthRequest = gameLayoutWidth,
@@ -767,6 +779,16 @@ namespace CROSSPLATFORM2DGAME {
                 FontSize = fontSize
             };
 
+            settingsBackButton = new Button {
+                Text = "Settings",
+                FontFamily = "Consolas",
+                BackgroundColor = Colors.DarkGray
+            };
+
+            settingsBackButton.Clicked += (s, e) => {
+                backToSettingsFromStart();
+            };
+
             AbsoluteLayout.SetLayoutBounds(startTitle, new Rect(.5,.2,300,300));
             AbsoluteLayout.SetLayoutFlags(startTitle, AbsoluteLayoutFlags.PositionProportional);
 
@@ -776,11 +798,19 @@ namespace CROSSPLATFORM2DGAME {
             AbsoluteLayout.SetLayoutBounds(startButton, new Rect(.5, .5, 100, 50));
             AbsoluteLayout.SetLayoutFlags(startButton, AbsoluteLayoutFlags.PositionProportional);
 
+            AbsoluteLayout.SetLayoutBounds(settingsBackButton, new Rect(.5, .65, 100, 50));
+            AbsoluteLayout.SetLayoutFlags(settingsBackButton, AbsoluteLayoutFlags.PositionProportional);
+
+
+
             startButton.Clicked += startButton_Clicked;
 
             startLayout.Children.Add(startTitle);
             startLayout.Children.Add(startButton);
+            startLayout.Children.Add(settingsBackButton);
         }
+
+        //UI - START BUTTON CLICKED LOGIC
         public void startButton_Clicked(object o, EventArgs e) {
             startLayout.IsVisible = false;
             rotateLayout.IsVisible = true;
@@ -796,6 +826,8 @@ namespace CROSSPLATFORM2DGAME {
         }
         //this is an ugly method that sets up all the layouts for the game
         //rotten looking to say the least.
+
+        //UI - GAME LAYOUT SETUP
         public void SetupGameLayout() {
 
             gameLayout = new AbsoluteLayout {
@@ -863,10 +895,12 @@ namespace CROSSPLATFORM2DGAME {
             gameLayoutHeight = gameLayout.HeightRequest;
         }
 
+        //UI - SCORE LABEL UPDATE
         public void updateScoreLabel() {
             scoreLabel.Text = "SCORE: " + score;
         }
 
+        //UI - SCORE LABEL SETUP
         public void setUpScoreLabel() {
             scoreLabel = new Label {
                 FontFamily = "Consolas",
@@ -885,6 +919,7 @@ namespace CROSSPLATFORM2DGAME {
 
         }
 
+        //UI - TIMER LAYOUT SETUP
         public void setUpTimerLayout() {
             timerLayout = new AbsoluteLayout {
                 BackgroundColor = Colors.Transparent,
@@ -908,9 +943,8 @@ namespace CROSSPLATFORM2DGAME {
             statsLayout.Children.Add(timerLayout);
         }
 
+        //UI + LOGIC - TIMER SETUP
         int timeElapsed = 0;
-
-        //TIME TIMER LOGIC
         public void updateTimer(object o, EventArgs e) {
             timeElapsed++;
             
@@ -924,7 +958,7 @@ namespace CROSSPLATFORM2DGAME {
             }
         }
 
-        //TIME TIMER UI
+        //UI + LOGIC - TIMER LABEL UPDATE
         int previousMinute = 0;
         public void updateTimerLabel() {
             int currentMinute = timeElapsed / 60;
@@ -943,14 +977,122 @@ namespace CROSSPLATFORM2DGAME {
             }
         }
 
+        
+
+        //LOGIC - START TIMER
         public void startTimeTimer() {
             timeTimer = new System.Timers.Timer(1000);
             timeTimer.Elapsed += updateTimer;
             timeTimer.Start();
         }
 
-        double maxBarHeight = 200;
+        //UI - SETTINGS LAYOUT SETUP
+        public void setUpSettingsLayout() {
 
+            double shortestSide = Math.Min(gameLayoutWidth, gameLayoutHeight);
+
+            double fontSize = shortestSide * 0.15; // 8% of screen
+
+            settingsLayout = new AbsoluteLayout {
+                BackgroundColor = Colors.Gray,
+                WidthRequest = gameLayoutWidth,
+                HeightRequest = gameLayoutHeight
+            };
+
+            settingsTitle = new Label {
+                Text = "Settings", 
+                FontFamily = "Consolas",
+                FontSize = fontSize
+            };
+
+            musicLabel = new Label {
+                Text = "Music Volume",
+                FontFamily = "Consolas",
+                FontSize = 18
+            };
+
+            sfxLabel = new Label {
+                Text = "SFX Volume",
+                FontFamily = "Consolas",
+                FontSize = 18
+            };
+
+            musicSlider = new Slider {
+                Minimum = 0,
+                Maximum = 1,
+                Value = myAudioHandler.musicVolume,
+                WidthRequest = 200
+            };
+
+            sfxSlider = new Slider {
+                Minimum = 0,
+                Maximum = 1,
+                Value = myAudioHandler.soundEffectsVolume,
+                WidthRequest = 200
+            };
+
+            sfxSlider.ValueChanged += (s, e) => {
+                myAudioHandler.setSoundEffectsVolume(sfxSlider.Value);
+            };
+
+            musicSlider.ValueChanged += (s, e) => {
+                myAudioHandler.setMusicVolume(musicSlider.Value);
+            };
+
+            backToStartButton = new Button {
+                Text = "Back to Start",
+                FontFamily = "Consolas",
+                BackgroundColor = Colors.DarkGray
+            };
+
+            backToStartButton.Clicked += (s, e) => {
+                backToStartFromSettings();
+            };
+
+            AbsoluteLayout.SetLayoutBounds(settingsTitle, new Rect(.5, .1, 300, 100));
+            AbsoluteLayout.SetLayoutFlags(settingsTitle, AbsoluteLayoutFlags.PositionProportional);
+
+            AbsoluteLayout.SetLayoutBounds(musicLabel, new Rect(.5, .3, 150, 50));
+            AbsoluteLayout.SetLayoutFlags(musicLabel, AbsoluteLayoutFlags.PositionProportional);
+
+            AbsoluteLayout.SetLayoutBounds(sfxLabel, new Rect(.5, .5, 150, 50));
+            AbsoluteLayout.SetLayoutFlags(sfxLabel, AbsoluteLayoutFlags.PositionProportional);
+
+            AbsoluteLayout.SetLayoutBounds(musicSlider, new Rect(.5, .4, musicSlider.WidthRequest, 50));
+            AbsoluteLayout.SetLayoutFlags(musicSlider, AbsoluteLayoutFlags.PositionProportional);
+
+            AbsoluteLayout.SetLayoutBounds(sfxSlider, new Rect(.5, .6, sfxSlider.WidthRequest, 50));
+            AbsoluteLayout.SetLayoutFlags(sfxSlider, AbsoluteLayoutFlags.PositionProportional);
+
+            AbsoluteLayout.SetLayoutBounds(settingsLayout, new Rect(0, 0, settingsLayout.WidthRequest, settingsLayout.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(settingsLayout, AbsoluteLayoutFlags.None);
+
+            AbsoluteLayout.SetLayoutBounds(backToStartButton, new Rect(.5, .8, 150, 50));
+            AbsoluteLayout.SetLayoutFlags(backToStartButton, AbsoluteLayoutFlags.PositionProportional);
+
+            settingsLayout.Children.Add(backToStartButton);
+
+            settingsLayout.Children.Add(settingsTitle);
+            settingsLayout.Children.Add(musicLabel);
+            settingsLayout.Children.Add(sfxLabel);
+            settingsLayout.Children.Add(musicSlider);
+            settingsLayout.Children.Add(sfxSlider);
+
+            settingsLayout.IsVisible = false;
+        }
+
+        public void backToStartFromSettings() {
+            settingsLayout.IsVisible = false;
+            startLayout.IsVisible = true;
+        }
+
+       public void backToSettingsFromStart() {
+            settingsLayout.IsVisible = true;
+            startLayout.IsVisible = false;
+        }
+
+        //UI - BOOST LAYOUT SETUP
+        double maxBarHeight = 200;
         public void setUpBoostLayout() {
             boostLayout = new AbsoluteLayout {
                 BackgroundColor = Colors.Transparent,
@@ -993,6 +1135,7 @@ namespace CROSSPLATFORM2DGAME {
             //fuelLayout.Rotation += 180;
         }
 
+        //UI - BOOST METER UPDATE
         public void updateBoostMeter(double boost) {
             double maxBoost = 100;
             double boostHeight = (boost / maxBoost) * maxBarHeight;
@@ -1008,6 +1151,7 @@ namespace CROSSPLATFORM2DGAME {
             ));
         }
 
+        //UI - HEALTH LAYOUT UPDATE
         bool healthInvulnerable = false;
         public void updateHealthLayout() {
             //we need this switch because
@@ -1067,6 +1211,7 @@ namespace CROSSPLATFORM2DGAME {
             }
         }
 
+        //UI - HEALTH LAYOUT SETUP
         public void setUpHealthLayout() {
             healthLayout = new AbsoluteLayout {
                 BackgroundColor = Colors.Transparent,
@@ -1110,6 +1255,7 @@ namespace CROSSPLATFORM2DGAME {
             healthLayout.Children.Add(h5);
         }
 
+        //UI - FUEL LAYOUT SETUP
         public void setUpFuelLayout() {
             fuelLayout = new AbsoluteLayout {
                 BackgroundColor = Colors.Transparent,
@@ -1150,6 +1296,7 @@ namespace CROSSPLATFORM2DGAME {
             //fuelLayout.Rotation += 180;
         }
 
+        //UI - FUEL METER UPDATE
         public void updateFuelMeter(double fuel) {
             double maxFuel = 100;
             double fuelHeight = (fuel / maxFuel) * maxBarHeight;

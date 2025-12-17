@@ -12,39 +12,55 @@ namespace CROSSPLATFORM2DGAME {
         myAudioPlayer fuelsfx;
         myAudioPlayer collisionsfx;
         myAudioPlayer healthsfx;
-        myAudioPlayer drivingsfx_1;
-        myAudioPlayer drivingsfx_2;
+        public double musicVolume = 1.0;
+        public double soundEffectsVolume = 1.0;
+        //myAudioPlayer drivingsfx_1;
+        //myAudioPlayer drivingsfx_2;
 
         public AudioHandler() {
-            //SET UP BACKGROUND MUSIC HERE
-            setUpMusicAudio();
-
-            //SET UP SOUND EFFECTS HERE
-            createSoundEffects();
         }
 
-        public void setUpMusicAudio() {
-            backgroundMusic = new myAudioPlayer();
+        public void setMusicVolume(double volume) {
+            musicVolume = volume;
+            backgroundMusic.setVolume(musicVolume);
+        }
 
-            //ADD SONGS FOR BACKGROUND PLAYING HERE
-            backgroundMusic.setUpMusicList();
-            backgroundMusic.addToMusicList("d_song_t.mp3");
-            backgroundMusic.addToMusicList("d_song_1.mp3");
-            backgroundMusic.addToMusicList("d_song_2.mp3");
-            backgroundMusic.addToMusicList("d_song_3.mp3");
-            backgroundMusic.addToMusicList("d_song_4.mp3");
-
+        public void setSoundEffectsVolume(double volume) {
+            soundEffectsVolume = volume;
+            lootsfx.setVolume(volume);
+            fuelsfx.setVolume(volume);
+            collisionsfx.setVolume(volume);
+            healthsfx.setVolume(volume);
         }
 
         public void playBackgroundMusic() {
             backgroundMusic.playMusicFromList();
         }
 
-        public void createSoundEffects() {
-            lootsfx = new myAudioPlayer("d_loot.mp3");
-            fuelsfx = new myAudioPlayer("d_fuel.mp3");
-            collisionsfx = new myAudioPlayer("d_crash.mp3");
-            healthsfx = new myAudioPlayer("d_health.mp3");
+        public async Task InitializeAsync() {
+            backgroundMusic = new myAudioPlayer();
+            backgroundMusic.setUpMusicList();
+            backgroundMusic.addToMusicList("d_song_t.mp3");
+            backgroundMusic.addToMusicList("d_song_1.mp3");
+            backgroundMusic.addToMusicList("d_song_2.mp3");
+            backgroundMusic.addToMusicList("d_song_3.mp3");
+            backgroundMusic.addToMusicList("d_song_4.mp3");
+            
+
+            lootsfx = new myAudioPlayer();
+            await lootsfx.InitializeAsync("d_loot.mp3");
+
+            fuelsfx = new myAudioPlayer();
+            await fuelsfx.InitializeAsync("d_fuel.mp3");
+
+            collisionsfx = new myAudioPlayer();
+            await collisionsfx.InitializeAsync("d_crash.mp3");
+
+            healthsfx = new myAudioPlayer();
+            await healthsfx.InitializeAsync("d_health.mp3");
+
+            setMusicVolume(1);
+            setSoundEffectsVolume(1);
         }
 
         public void playSoundEffect(string type) {
