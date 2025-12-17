@@ -13,7 +13,8 @@ namespace CROSSPLATFORM2DGAME {
     public partial class MainPage : ContentPage {
 
         //AUDIO
-        private IAudioPlayer backgroundMusicPlayer;
+        // private IAudioPlayer backgroundMusicPlayer;
+        AudioHandler myAudioHandler;
 
         //KEYHANDLER
         KeyHandler keyHandler;
@@ -88,7 +89,10 @@ namespace CROSSPLATFORM2DGAME {
             keyHandler = new KeyHandler();
             toRemove = new List<gameObject>();
 
+            myAudioHandler = new AudioHandler();
         }
+
+        
 
         //SET UP GAME TIMER
         public void setUpTimer() {
@@ -403,6 +407,7 @@ namespace CROSSPLATFORM2DGAME {
                     //FUEL PICKUP DETECTION
                     if (OBBHandler.staticOBBs[i].objectType == "fuel") {
                         myP.addFuel();
+                        myAudioHandler.playSoundEffect("fuel");
                         toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
                         OBBHandler.staticOBBs.RemoveAt(i);
                         mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
@@ -410,6 +415,7 @@ namespace CROSSPLATFORM2DGAME {
                     //LOOT PICKUP DETECTION
                     else if (OBBHandler.staticOBBs[i].objectType == "loot") {
                         score += 200;
+                        myAudioHandler.playSoundEffect("loot");
                         toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
                         OBBHandler.staticOBBs.RemoveAt(i);
                         mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
@@ -418,10 +424,12 @@ namespace CROSSPLATFORM2DGAME {
                     else if (OBBHandler.staticOBBs[i].objectType == "wall") {
                         collision = true;
                         backFrame = 60;
+                        myAudioHandler.playSoundEffect("collision");
 
                     } else if (OBBHandler.staticOBBs[i].objectType == "health") {
                         if (myP.lives < 5) {
                             myP.lives += 2;
+                            myAudioHandler.playSoundEffect("health");
                             if (myP.lives > 5) {
                                 myP.lives = 5;
                             }
@@ -443,6 +451,7 @@ namespace CROSSPLATFORM2DGAME {
                     if (myP.objectOBB.Intersects(OBBHandler.movingOBBs[i])) {
                         if (!collision) {
                             //collisionJustHappened = true; // only set to true on first collision detection
+                            myAudioHandler.playSoundEffect("collision");
                             invincibleFrame = 180;
                             invincibleSkin = true;
                             needToChange = 1;
@@ -463,6 +472,7 @@ namespace CROSSPLATFORM2DGAME {
             foreach (var corner in myP.objectOBB.Corners) {
                 if ((corner.X < 0 || corner.X > mapLayoutWidth || corner.Y < 0 || corner.Y > mapLayoutHeight) && outOfBoundsFrame <= 0) {
                     outOfBounds = true;
+                    myAudioHandler.playSoundEffect("collision");
                     outOfBoundsFrame = 15;
                     break;
                 }
@@ -620,9 +630,7 @@ namespace CROSSPLATFORM2DGAME {
 
             base.OnAppearing();
 
-            backgroundMusicPlayer = AudioManager.Current.CreatePlayer(await FileSystem.OpenAppPackageFileAsync("SONG1.mp3"));
-            backgroundMusicPlayer.Loop = true;
-            backgroundMusicPlayer.Play();
+            
 #if WINDOWS
             if (this.Window != null) {
                 KeyHook.Attach(this.Window, keyHandler);
@@ -666,6 +674,8 @@ namespace CROSSPLATFORM2DGAME {
                         setUpBoostLayout();
                         setUpHealthLayout();
                         setUpScoreLabel();
+
+                        myAudioHandler.playBackgroundMusic();
 
                         //TO BE DELETED LATER - JUST FOR TESTING OBB VALUES
                         /*
