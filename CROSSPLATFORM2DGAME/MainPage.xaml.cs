@@ -34,6 +34,7 @@ namespace CROSSPLATFORM2DGAME {
         Label startTitle;
         Button startButton;
         Button settingsButton;
+        Button controlsButton;
 
         AbsoluteLayout settingsLayout;
         Label settingsTitle;
@@ -43,6 +44,11 @@ namespace CROSSPLATFORM2DGAME {
         Slider musicSlider;
         Slider sfxSlider;
         Button backToStartButton;
+
+        AbsoluteLayout controlsLayout;
+        Label controlsTitle;
+        Label controlsDescription;
+        Button controlsBackButton;
 
         AbsoluteLayout gameLayout;
         AbsoluteLayout mapLayout;
@@ -821,6 +827,7 @@ androidInputHandler.AddToLayout(statsLayout, gameLayoutWidth, gameLayoutHeight);
                         setUpStartLayout();
                         setUpSettingsLayout();
                         setUpGameOverLayout();
+                        setUpControlLayout();
 
                         gameOverButton.Clicked += (sender, args) => {
                             restartGame();
@@ -844,6 +851,7 @@ androidInputHandler.AddToLayout(statsLayout, gameLayoutWidth, gameLayoutHeight);
                         gameLayout.Children.Add(settingsLayout);
                         gameLayout.Children.Add(gameOverLayout);
                         gameLayout.Children.Add(statsLayout);
+                        gameLayout.Children.Add(controlsLayout);
                         statsLayout.InputTransparent = true;
                         //CREATE GAME OBJECTS HERE AS NOW THE MAPLAYOUT IS PROPERLY SET UP AND WE HAVE VALID WIDTH/HEIGHT VALUES
                         myP = new player();
@@ -1090,6 +1098,16 @@ androidInputHandler.AddToLayout(statsLayout, gameLayoutWidth, gameLayoutHeight);
                 backToSettingsFromStart();
             };
 
+            controlsButton = new Button {
+                BackgroundColor = Colors.DarkGray,
+                Text = "Controls",
+                FontFamily = "consolas",
+            };
+
+            controlsButton.Clicked += (s, e) => {
+                backToControlsFromStart();
+            };
+
             AbsoluteLayout.SetLayoutBounds(startTitle, new Rect(.5,.2,300,300));
             AbsoluteLayout.SetLayoutFlags(startTitle, AbsoluteLayoutFlags.PositionProportional);
 
@@ -1102,13 +1120,94 @@ androidInputHandler.AddToLayout(statsLayout, gameLayoutWidth, gameLayoutHeight);
             AbsoluteLayout.SetLayoutBounds(settingsBackButton, new Rect(.5, .65, 100, 50));
             AbsoluteLayout.SetLayoutFlags(settingsBackButton, AbsoluteLayoutFlags.PositionProportional);
 
-
+            AbsoluteLayout.SetLayoutBounds(controlsButton, new Rect(.5, .8, 100, 50));
+            AbsoluteLayout.SetLayoutFlags(controlsButton, AbsoluteLayoutFlags.PositionProportional);
 
             startButton.Clicked += startButton_Clicked;
 
             startLayout.Children.Add(startTitle);
             startLayout.Children.Add(startButton);
+            startLayout.Children.Add(controlsButton);
             startLayout.Children.Add(settingsBackButton);
+        }
+
+        public void backToControlsFromStart() {
+            controlsLayout.IsVisible = true;
+            startLayout.IsVisible = false;
+        }
+
+        public void backToStartFromControls() {
+            controlsLayout.IsVisible = false;
+            startLayout.IsVisible = true;
+        }
+
+        public void setUpControlLayout() {
+            controlsLayout = new AbsoluteLayout {
+                WidthRequest = gameLayoutWidth,
+                HeightRequest = gameLayoutHeight,
+                BackgroundColor = Colors.Gray
+            };
+
+            controlsBackButton = new Button {
+                BackgroundColor = Colors.DarkGray,
+                Text = "Back",
+                FontFamily = "consolas",
+            };
+
+            double shortestSide = Math.Min(gameLayoutWidth, gameLayoutHeight);
+
+            double fontSize = shortestSide * 0.14;
+
+            controlsTitle = new Label {
+                Text = "Controls", //TITLE FOR THE Game ! 
+                FontFamily = "consolas",
+                FontSize = fontSize
+            };
+#if WINDOWS
+            controlsDescription = new Label {
+                Text = "Use Arrow Keys or WASD to steer and accelerate.\n" +
+                       "Hold Space to boost (consumes boost meter).\n" +
+                       "Dont run out of fuel and collect loot while avoiding obstacles and enemies.\n" +
+                       "Survive as long as possible to achieve a high score!",
+                FontFamily = "consolas",
+                FontSize = fontSize * 0.2,
+                HorizontalTextAlignment = TextAlignment.Center,
+                VerticalTextAlignment = TextAlignment.Center
+            };
+#elif ANDROID
+            controlsDescription = new Label {
+                Text = "Use UP and DOWN arrow to drive forward and reverse, Use the left and right arrows to steer while in drive.\n" +
+                       "Tap the boost button to boost (consumes boost meter).\n" +
+                       "Dont run out of fuel and collect loot while avoiding obstacles and enemies.\n" +
+                       "Survive as long as possible to achieve a high score!",
+                FontFamily = "consolas",
+                FontSize = fontSize * 0.2,
+                HorizontalTextAlignment = TextAlignment.Center,
+                VerticalTextAlignment = TextAlignment.Center
+            };
+#endif
+
+            AbsoluteLayout.SetLayoutBounds(controlsDescription, new Rect(.5, .4, gameLayoutWidth * 0.8, gameLayoutHeight * 0.4));
+            AbsoluteLayout.SetLayoutFlags(controlsDescription, AbsoluteLayoutFlags.PositionProportional);
+
+            controlsBackButton.Clicked += (s, e) => {
+                backToStartFromControls();  
+            };
+
+            AbsoluteLayout.SetLayoutBounds(controlsTitle, new Rect(.5, .2, 300, 300));
+            AbsoluteLayout.SetLayoutFlags(controlsTitle, AbsoluteLayoutFlags.PositionProportional);
+
+            AbsoluteLayout.SetLayoutBounds(controlsLayout, new Rect(0, 0, gameLayoutWidth, gameLayoutHeight));
+            AbsoluteLayout.SetLayoutFlags(controlsLayout, AbsoluteLayoutFlags.None);
+
+            AbsoluteLayout.SetLayoutBounds(controlsBackButton, new Rect(.5, .8, 100, 50));
+            AbsoluteLayout.SetLayoutFlags(controlsBackButton, AbsoluteLayoutFlags.PositionProportional);
+
+
+            controlsLayout.Children.Add(controlsTitle);
+            controlsLayout.Children.Add(controlsBackButton);
+            controlsLayout.Children.Add(controlsDescription);
+            controlsLayout.IsVisible = false;
         }
 
 

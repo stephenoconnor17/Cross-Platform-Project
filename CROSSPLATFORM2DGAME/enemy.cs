@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 
 namespace CROSSPLATFORM2DGAME {
     public class enemy : gameObject {
-        int enemyRank;
         double fuel;
         public float enemyOBBCenterX;
         public float enemyOBBCenterY;

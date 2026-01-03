@@ -142,7 +142,6 @@ namespace CROSSPLATFORM2DGAME {
             var random = new Random();
             //for loops for each item, change the i limit for amount of items.
 
-            //WALL LOOP
             for (int i = 0; i < 15; i++) {
                 double rx, ry;
                 bool validPosition;
@@ -152,8 +151,14 @@ namespace CROSSPLATFORM2DGAME {
                     rx = 72 + random.NextDouble() * (this.maxWidth - 144);
                     ry = 72 + random.NextDouble() * (this.maxHeight - 144);
 
-                    // Check if position is on the player spawn
-                    if ((Math.Abs(rx - ((this.maxWidth / 2) - 96)) < 48 && Math.Abs(ry - ((this.maxHeight / 2) - 96)) < 48)) {
+                    // Check if position is on the player spawn (center of map)
+                    double playerSpawnX = this.maxWidth / 2;
+                    double playerSpawnY = this.maxHeight / 2;
+
+                    // Increase the safe zone radius to ensure walls don't spawn too close to player
+                    double safeZoneRadius = 100; // You can adjust this value
+
+                    if (Math.Abs(rx - playerSpawnX) < safeZoneRadius && Math.Abs(ry - playerSpawnY) < safeZoneRadius) {
                         validPosition = false;
                         continue;
                     }
@@ -172,7 +177,7 @@ namespace CROSSPLATFORM2DGAME {
                 objectIndexMap.Add(wallTest, objectLocation.Count - 1);
                 this.mapLayout.Children.Add(wallTest.gameObjectLayout);
             }
-            
+
             //FUEL LOOP
             for (int i = 0; i < 10; i++) {
                 double rx, ry;
