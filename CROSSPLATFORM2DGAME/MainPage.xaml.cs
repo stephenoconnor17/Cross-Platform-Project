@@ -1,7 +1,6 @@
 ﻿using Microsoft.Maui.Controls;
 using Microsoft.Maui.Controls.Shapes;
 using Microsoft.Maui.Layouts;
-using Microsoft.UI.Xaml.Input;
 using System.Data;
 using System.Diagnostics;
 using System.Numerics;
@@ -19,8 +18,11 @@ namespace CROSSPLATFORM2DGAME {
         AudioHandler myAudioHandler;
 
         //KEYHANDLER
+#if WINDOWS
         KeyHandler keyHandler;
-
+#elif ANDROID
+        androidInput androidInputHandler;
+#endif
         //GAME TIMER
         System.Timers.Timer gameTimer;
 
@@ -88,8 +90,12 @@ namespace CROSSPLATFORM2DGAME {
         public float playerY = 0;//here because of widths and lengths are based on maui events.
         public MainPage() {
             InitializeComponent();
-            this.BackgroundColor = Colors.DeepSkyBlue;          
+            this.BackgroundColor = Colors.DeepSkyBlue;
+#if WINDOWS
             keyHandler = new KeyHandler();
+#elif ANDROID
+            androidInputHandler = new androidInput();
+#endif
             toRemove = new List<gameObject>();
 
             myAudioHandler = new AudioHandler();
@@ -99,14 +105,18 @@ namespace CROSSPLATFORM2DGAME {
 
         //LOGIC - GAME TIMER STARTUP
         public void setUpTimer() {
+#if WINDOWS
             gameTimer = new System.Timers.Timer(16);
+#elif ANDROID
+            gameTimer = new System.Timers.Timer(20); //because android is bad bad.
+#endif
             gameTimer.Elapsed += GameTimer_Elapsed;
             gameTimer.Start();
         }
 
 
         //LOGIC - GAME RESTART LOGIC
-        public void restartGame() {
+        public async void restartGame() {
             // Stop timers FIRST - this is critical to prevent race conditions
             if (gameTimer != null && gameTimer.Enabled) {
                 gameTimer.Stop();
@@ -134,12 +144,6 @@ namespace CROSSPLATFORM2DGAME {
             needToChange = 0;
             timeElapsed = 0;
             previousMinute = 0;
-
-            // Update high score if needed
-            if (score > highestScore) {
-                highestScore = score;
-                gameOverLabel2.Text = "HIGH SCORE: " + highestScore;
-            }
 
             // Reset score
             score = 0;
@@ -271,15 +275,22 @@ namespace CROSSPLATFORM2DGAME {
             gameOverLayout.Children.Add(gameOverButton2);
 
             gameOverLayout.IsVisible = false;
+            gameOverLayout.ZIndex = 1000;
         }
 
 
         //LOGIC - END GAME FUNCTION
         bool gameOver = false;
-        public void endGame() {
+        public async void endGame() {
             gameTimer.Stop();
             timeTimer.Stop();
-        
+
+            if (score > highestScore) {
+                highestScore = score;
+                await JsonManager.SaveHighScoreAsync(score);
+            }
+
+            
             gameOver = true;
         }
 
@@ -310,21 +321,23 @@ namespace CROSSPLATFORM2DGAME {
         public void GameTimer_Elapsed(object sender, ElapsedEventArgs e) {
             double rad = rp * Math.PI / 180.0; // convert rotation to radians
 
-            for(int i = mg.enemies.Count - 1; i >= 0; i--) {
+            for (int i = mg.enemies.Count - 1; i >= 0; i--) {
                 if (mg.enemies[i].removeThis == true) {
                     OBBHandler.movingOBBs.Remove(mg.enemies[i].objectOBB);
                     toRemove.Add(mg.enemies[i]);
                 }
             }
 
-            if(myP.lives <= 0 || (speed <= 0 && myP.fuel <= 0)) {
+            if (myP.lives <= 0 || (speed <= 0 && myP.fuel <= 0)) {
                 //game over in endGame();
                 endGame();
-              
+
             }
 
+#if WINDOWS
             // --- INPUT → ACCELERATION ------------------
             if (myP.fuel > 0) { //only allow drive if got fuel
+
                 if (keyHandler.Up) {
                     
                     acceleration = accelRate * boostMultiplier;
@@ -400,156 +413,232 @@ namespace CROSSPLATFORM2DGAME {
             //acceleration = accelRate * boostMultiplier;
             speed += acceleration;
             //speed = Math.Clamp(speed, -maxSpeed, maxSpeed);
+#elif ANDROID
+            // --- INPUT → ACCELERATION ------------------
+            if (myP.fuel > 0) { //only allow drive if got fuel
+    if (androidInputHandler.Up) {
+        acceleration = accelRate * boostMultiplier;
+        //Left and right steering only checked for while moving forward or backward
+        //because cars dont go literally sideways
+        if (androidInputHandler.Left)
+            rp += turnSpeed * (speed / maxSpeed);  // proportional turning
+        if (androidInputHandler.Right)
+            rp -= turnSpeed * (speed / maxSpeed);
+    } else if (androidInputHandler.Down) {
+        acceleration = -brakeRate;
+        if (androidInputHandler.Left)
+            rp += turnSpeed * (speed / maxSpeed);  // proportional turning
+        if (androidInputHandler.Right)
+            rp -= turnSpeed * (speed / maxSpeed);
+    } else
+        acceleration = 0;
+} else {
+    //OUT OF FUEL - NO ACCELERATION
+    acceleration = 0;
+}
 
+//SUBTRACT FUEL WHILE MOVING
+if (Math.Abs(speed) > 0 && myP.fuel > 0) {
+    myP.useFuel(boostMultiplier);
+}
+
+// --- APPLY FRICTION WHEN NO KEYS PRESSED ----
+if (!androidInputHandler.Up && !androidInputHandler.Down || myP.fuel <= 0) {
+    if (speed > 0)
+        speed -= friction;
+    if (speed < 0)
+        speed += friction;
+    // avoid endless tiny motion
+    if (Math.Abs(speed) < 0.05)
+        speed = 0;
+}
+
+// --- SPEED LIMIT ----------------------------
+//only allow boost if above threshold of boost amount so cant keep tapping space to go fast
+if (androidInputHandler.Boost && androidInputHandler.Up && myP.fuel > 0) {
+    // Start boost if above threshold
+    if (!isBoosting && myP.boostAmount >= 25)
+        isBoosting = true;
+    // Stop boost if below minimum
+    if (myP.boostAmount <= 0)
+        isBoosting = false;
+    if (isBoosting && myP.boostAmount > 0) {
+        boostMultiplier = 2.0; // GIVE JUICE
+        acceleration = accelRate * boostMultiplier;
+        speed += acceleration;
+        speed = Math.Clamp(speed, -boostMaxSpeed, boostMaxSpeed);
+        myP.useBoost();
+    } else {
+        boostMultiplier = 1.0;
+        acceleration = accelRate * boostMultiplier;
+        speed += acceleration;
+        speed = Math.Clamp(speed, -maxSpeed, maxSpeed);
+    }
+} else {
+    // Boost not pressed -> stop boosting
+    isBoosting = false;
+    boostMultiplier = 1.0;
+    speed = Math.Clamp(speed, -maxSpeed, maxSpeed);
+}
+speed += acceleration;
+
+#endif
 
             // --- MOVE CAR --------------------------------
             double dx = speed * Math.Sin(rad);
-            double dy = speed * Math.Cos(rad);
+             double dy = speed * Math.Cos(rad);
 
-            bool collision = false;
-            //STATIC COLLISION DETECTION
-            for (int i = OBBHandler.staticOBBs.Count - 1; i >= 0; i--) {
-                if (myP.objectOBB.Intersects(OBBHandler.staticOBBs[i])) {
+             bool collision = false;
+             //STATIC COLLISION DETECTION
+             for (int i = OBBHandler.staticOBBs.Count - 1; i >= 0; i--) {
+                 if (myP.objectOBB.Intersects(OBBHandler.staticOBBs[i])) {
 
                     //FUEL PICKUP DETECTION
                     if (OBBHandler.staticOBBs[i].objectType == "fuel") {
-                        myP.addFuel();
-                        myAudioHandler.playSoundEffect("fuel");
-                        toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
-                        OBBHandler.staticOBBs.RemoveAt(i);
-                        mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
-                    }
-                    //LOOT PICKUP DETECTION
-                    else if (OBBHandler.staticOBBs[i].objectType == "loot") {
-                        score += 200;
-                        myAudioHandler.playSoundEffect("loot");
-                        toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
-                        OBBHandler.staticOBBs.RemoveAt(i);
-                        mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
-                    }
-                    //WALL COLLISION
-                    else if (OBBHandler.staticOBBs[i].objectType == "wall") {
-                        collision = true;
-                        backFrame = 60;
-                        myAudioHandler.playSoundEffect("collision");
-
-                    } else if (OBBHandler.staticOBBs[i].objectType == "health") {
-                        if (myP.lives < 5) {
-                            myP.lives += 2;
-                            myAudioHandler.playSoundEffect("health");
-                            if (myP.lives > 5) {
-                                myP.lives = 5;
-                            }
-                            mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
+                         myP.addFuel();
+                            myAudioHandler.playSoundEffect("fuel");
                             toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
                             OBBHandler.staticOBBs.RemoveAt(i);
+                            mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
+                        }
+                        //LOOT PICKUP DETECTION
+                        else if (OBBHandler.staticOBBs[i].objectType == "loot") {
+                            score += 200;
+                            myAudioHandler.playSoundEffect("loot");
+                            toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
+                            OBBHandler.staticOBBs.RemoveAt(i);
+                            mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
+                        }
+                        //WALL COLLISION
+                        else if (OBBHandler.staticOBBs[i].objectType == "wall") {
+                            collision = true;
+                            
+                            backFrame = 60;
+                            myAudioHandler.playSoundEffect("collision");
+                            
+
+                        } else if (OBBHandler.staticOBBs[i].objectType == "health") {
+                            if (myP.lives < 5) {
+                                myP.lives += 2;
+                                myAudioHandler.playSoundEffect("health");
+                                if (myP.lives > 5) {
+                                    myP.lives = 5;
+                                }
+                                mg.RemoveObject(OBBHandler.staticOBBs[i].thisObject);
+                                toRemove.Add(OBBHandler.staticOBBs[i].thisObject);
+                                OBBHandler.staticOBBs.RemoveAt(i);
+                            }
+                        }
+
+
+                    }
+                }
+
+
+                //MOVING COLLISION DETECTION
+                //check for collision if not invincible i.e if invincibleFrame > 0, invincible, dont bother check collision.
+                if (invincibleFrame <= 0) {
+                    for (int i = OBBHandler.movingOBBs.Count - 1; i >= 0; i--) {
+                        if (myP.objectOBB.Intersects(OBBHandler.movingOBBs[i])) {
+                            if (!collision) {
+                                //collisionJustHappened = true; // only set to true on first collision detection
+                                myAudioHandler.playSoundEffect("collision");
+                                invincibleFrame = 180;
+                                invincibleSkin = true;
+                                needToChange = 1;
+                                myP.lives--;
+                            }
+                            collision = true;
+                            backFrame = 60; // amount of frames to allow back off after collision i.e one second at 60fps.
+                            OBBHandler.movingOBBs[i].thisEnemy.collision = true; // inform the enemy it has collided
+                            break;
                         }
                     }
-
-                   
                 }
-            }
 
-
-            //MOVING COLLISION DETECTION
-            //check for collision if not invincible i.e if invincibleFrame > 0, invincible, dont bother check collision.
-            if (invincibleFrame <= 0) {
-                for (int i = OBBHandler.movingOBBs.Count - 1; i >= 0; i--) {
-                    if (myP.objectOBB.Intersects(OBBHandler.movingOBBs[i])) {
-                        if (!collision) {
-                            //collisionJustHappened = true; // only set to true on first collision detection
-                            myAudioHandler.playSoundEffect("collision");
-                            invincibleFrame = 180;
-                            invincibleSkin = true;
-                            needToChange = 1;
-                            myP.lives--;
-                        }
-                        collision = true;
-                        backFrame = 60; // amount of frames to allow back off after collision i.e one second at 60fps.
-                        OBBHandler.movingOBBs[i].thisEnemy.collision = true; // inform the enemy it has collided
+                //PLAYER OUT OF BOUNDS CHECK
+                //We use Corners instead of OBB.intersects here because well 
+                //its out of bounds general, its x and y are in a certain range.
+                bool outOfBounds = false;
+                foreach (var corner in myP.objectOBB.Corners) {
+                    if ((corner.X < 0 || corner.X > mapLayoutWidth || corner.Y < 0 || corner.Y > mapLayoutHeight) && outOfBoundsFrame <= 0) {
+                        outOfBounds = true;
+                        myAudioHandler.playSoundEffect("collision");
+                        outOfBoundsFrame = 15;
                         break;
                     }
                 }
-            }
 
-            //PLAYER OUT OF BOUNDS CHECK
-            //We use Corners instead of OBB.intersects here because well 
-            //its out of bounds general, its x and y are in a certain range.
-            bool outOfBounds = false;
-            foreach (var corner in myP.objectOBB.Corners) {
-                if ((corner.X < 0 || corner.X > mapLayoutWidth || corner.Y < 0 || corner.Y > mapLayoutHeight) && outOfBoundsFrame <= 0) {
-                    outOfBounds = true;
-                    myAudioHandler.playSoundEffect("collision");
-                    outOfBoundsFrame = 15;
-                    break;
-                }
-            }
+                //add collision if out of bounds
+                if (outOfBounds && outOfBoundsFrame == 15) {
 
-            //add collision if out of bounds
-            if (outOfBounds && outOfBoundsFrame == 15) {
-                
-                collision = true;
-                backFrame = 60;
-            }
-
-            if(outOfBoundsFrame > 0) {
-                outOfBoundsFrame--;
-            }
-
-            //we do this so that it only calculates collision math once.
-            if (collision) {
-                if (Math.Abs(speed) > 0 && backFrame == 60) { //collisionJustHappened ensures we dont continously invert speed every frame
-                    speed = -speed; //invert speed on collision - sort of a bounce back effect
-                    dx = speed * Math.Sin(rad); // reapply dx dy with new speed
-                    dy = speed * Math.Cos(rad);
-                    //bounce back is as good as it gets. I dont want to overcomplicate it. It hurts to.
+                    collision = true;
+                    backFrame = 60;
                 }
 
-                if (backFrame > 0) { // a bit of a lopsided collision response but basically if backframe is over 0, a collision has been called.
-                    backFrame--; // decrement backframe until 0. backframe / 60 = x amount of seconds of collision response given
-                                 //  60 fps  
+                if (outOfBoundsFrame > 0) {
+                    outOfBoundsFrame--;
+                }
 
+                //we do this so that it only calculates collision math once.
+                if (collision) {
+                    if (Math.Abs(speed) > 0 && backFrame == 60) { //collisionJustHappened ensures we dont continously invert speed every frame
+                        speed = -speed; //invert speed on collision - sort of a bounce back effect
+                        dx = speed * Math.Sin(rad); // reapply dx dy with new speed
+                        dy = speed * Math.Cos(rad);
+                        //bounce back is as good as it gets. I dont want to overcomplicate it. It hurts to.
+                    }
+
+                    if (backFrame > 0) { // a bit of a lopsided collision response but basically if backframe is over 0, a collision has been called.
+                        backFrame--; // decrement backframe until 0. backframe / 60 = x amount of seconds of collision response given
+                                     //  60 fps                         
+                        xp += dx;
+                        yp += dy;
+                    }
+                } else if (!collision) {
                     xp += dx;
                     yp += dy;
                 }
 
+                if (invincibleFrame <= 180) {
+                    invincibleFrame--;
+                }
+
+                if (invincibleFrame <= 0) {
+                    invincibleFrame = 0;
+                    invincibleSkin = false;
+                }
+                // OBB UPDATE
+                myP.objectOBB.Update(new Vector2(playerX - (float)xp, playerY - (float)yp), rp * Math.PI / 180.0);
                 
-            } else if (!collision) {
-                xp += dx;
-                yp += dy;
+                for(int i = 0; i < OBBHandler.staticOBBs.Count; i++) {
+                    if (OBBHandler.staticOBBs[i].objectType == "wall") {
+                        //walls are static so only need to update position based on mapLayout translation
+                        OBBHandler.staticOBBs[i].Update(new Vector2(OBBHandler.staticOBBs[i].Center.X, OBBHandler.staticOBBs[i].Center.Y), -rp * Math.PI / 180.0);
+                    }
             }
 
-            if (invincibleFrame <= 180) {
-                invincibleFrame--;
-            }
-
-            if(invincibleFrame <= 0) {
-                invincibleFrame = 0;
-                invincibleSkin = false;
-            }
-            // OBB UPDATE
-            myP.objectOBB.Update(new Vector2(playerX - (float)xp, playerY - (float)yp), rp * Math.PI / 180.0);
-           
+            //ENEMY UPDATES
             for (int i = 0; i < mg.enemies.Count; i++) {
-                mg.enemies[i].update(playerX - (float)xp, playerY - (float)yp);
+                    mg.enemies[i].update(playerX - (float)xp, playerY - (float)yp);
             }
 
             //dont know why everything is tabbed forward.
             //will tab back when cleaning code.
-                //UI UPDATES
-                //SINCE GameTimer_Elapsed IS A BACKGROUND THREAD WE MUST INVOKE ON MAIN THREAD TO UPDATE UI ELEMENTS
-                MainThread.BeginInvokeOnMainThread(() => {
-                    
-                    //compute gameOver stuff here graphically.
-                    if (gameOver) {
-                        statsLayout.Opacity = 0.8;
-                        timerLayout.Opacity = 0.8;
+            //UI UPDATES
+            //SINCE GameTimer_Elapsed IS A BACKGROUND THREAD WE MUST INVOKE ON MAIN THREAD TO UPDATE UI ELEMENTS
+            MainThread.BeginInvokeOnMainThread(() => {
+                //compute gameOver stuff here graphically. 
+                if (gameOver) {
+                    statsLayout.Opacity = 0.8;
+                    timerLayout.Opacity = 0.8;
 
-                        gameOverLabel3.Text = "Score: " + score;
+                    gameOverLabel2.Text = "HIGH SCORE: " + highestScore;  // ADD THIS LINE
+                    gameOverLabel3.Text = "SCORE: " + score;
 
-                        statsLayout.InputTransparent = true;
-                        gameOverLayout.IsVisible = true;
-                    }
+                    statsLayout.InputTransparent = true;
+                    gameOverLayout.IsVisible = true;
+                }
 
                 //TEST OUTPUTS
                 /*
@@ -558,11 +647,11 @@ namespace CROSSPLATFORM2DGAME {
                         $"Width: {myP.objectOBB.Width:F2} Height: {myP.objectOBB.Height:F2}\n" +
                         $"Rotation: {rp:F2}°";
 
-                    
+
                     OBBPlaceHolder2.Text = $"OBB Center: ({enemyTest.objectOBB.Center.X:F2}, {enemyTest.objectOBB.Center.Y:F2})\n" +
                         $"Width: {enemyTest.objectOBB.Width:F2} Height: {enemyTest.objectOBB.Height:F2}\n" +
                         $"Rotation: {rp:F2}°\nCollision: {collision}";
-                    
+
                     if (wallTest != null && wallTest.objectOBB != null) {
                         OBBPlaceHolder2.Text = $"Wall OBB: ({wallTest.objectOBB.Center.X:F2}, {wallTest.objectOBB.Center.Y:F2})\n" +
                                                $"Player OBB: ({myP.objectOBB.Center.X:F2}, {myP.objectOBB.Center.Y:F2})\n" +
@@ -572,8 +661,8 @@ namespace CROSSPLATFORM2DGAME {
                     }
                 */
 
-                    //ACTUAL LAYOUT UPDATES
-                    updateHealthLayout();
+                //ACTUAL LAYOUT UPDATES
+                updateHealthLayout();
                     updateFuelMeter(myP.fuel);
                     updateTimerLabel(); // also updates boost VARIABLE but not LABEL.
                     updateBoostMeter(myP.boostAmount);
@@ -613,11 +702,16 @@ namespace CROSSPLATFORM2DGAME {
                         }
                     }
                 });
-        }
+            }
+        
+        
 
         //LOGIC - PAUSE TIMERS ON PAGE DISAPPEAR
         protected override void OnDisappearing() {
             base.OnDisappearing();
+
+            //myAudioHandler.
+
             if (gameTimer != null) {
                 gameTimer.Stop();
             }
@@ -639,6 +733,19 @@ namespace CROSSPLATFORM2DGAME {
             base.OnAppearing();
 
             await myAudioHandler.InitializeAsync();
+            var settings = await JsonManager.LoadGameDataAsync();
+            highestScore = settings.HighestScore;
+
+            // Apply audio settings to your audio handler
+            if (myAudioHandler != null) {
+
+                myAudioHandler.setMusicVolume(settings.MusicVolume);
+                myAudioHandler.setSoundEffectsVolume(settings.sfxVolume);
+
+                // Update sliders if they exist
+                if (musicSlider != null) musicSlider.Value = settings.MusicVolume;
+                if (sfxSlider != null) sfxSlider.Value = settings.sfxVolume;
+            }
 #if WINDOWS
             if (this.Window != null) {
                 KeyHook.Attach(this.Window, keyHandler);
@@ -661,6 +768,8 @@ namespace CROSSPLATFORM2DGAME {
 
                 gameLayout.SizeChanged += (s, e) => {
                     //ONLY ASSIGN GAME LAYOUT WIDTH/HEIGHT IN HERE AS IT IS INVALID IN THE SETUP LAYOUT
+                    
+
                     if (myP == null) {
 
                         gameLayoutWidth = gameLayout.Width;
@@ -683,18 +792,21 @@ namespace CROSSPLATFORM2DGAME {
                         setUpHealthLayout();
                         setUpScoreLabel();
 
-                        myAudioHandler.playBackgroundMusic();
+                        myAudioHandler.playBackgroundMusic();//START THE MUSIC !
 
                         //TO BE DELETED LATER - JUST FOR TESTING OBB VALUES
-                        /*
-                        AbsoluteLayout.SetLayoutBounds(OBBPlaceHolder, new Rect(0, 25, statsLayout.WidthRequest, statsLayout.HeightRequest));
-                        AbsoluteLayout.SetLayoutFlags(OBBPlaceHolder, AbsoluteLayoutFlags.None);
+/*
+AbsoluteLayout.SetLayoutBounds(OBBPlaceHolder, new Rect(0, 25, statsLayout.WidthRequest, statsLayout.HeightRequest));
+AbsoluteLayout.SetLayoutFlags(OBBPlaceHolder, AbsoluteLayoutFlags.None);
 
-                        AbsoluteLayout.SetLayoutBounds(OBBPlaceHolder2, new Rect(0, 75, statsLayout.WidthRequest, statsLayout.HeightRequest));
-                        AbsoluteLayout.SetLayoutFlags(OBBPlaceHolder2, AbsoluteLayoutFlags.None);
+AbsoluteLayout.SetLayoutBounds(OBBPlaceHolder2, new Rect(0, 75, statsLayout.WidthRequest, statsLayout.HeightRequest));
+AbsoluteLayout.SetLayoutFlags(OBBPlaceHolder2, AbsoluteLayoutFlags.None);
 
-                        */
+*/
 
+#if ANDROID
+androidInputHandler.AddToLayout(statsLayout, gameLayoutWidth, gameLayoutHeight);   
+#endif
                         statsLayout.Children.Add(scoreLabel);
                         statsLayout.Children.Add(fuelLayout);
                         statsLayout.Children.Add(boostLayout);
@@ -732,13 +844,13 @@ namespace CROSSPLATFORM2DGAME {
                         gameLayout.Children.Add(settingsLayout);
                         gameLayout.Children.Add(gameOverLayout);
                         gameLayout.Children.Add(statsLayout);
-
+                        statsLayout.InputTransparent = true;
                         //CREATE GAME OBJECTS HERE AS NOW THE MAPLAYOUT IS PROPERLY SET UP AND WE HAVE VALID WIDTH/HEIGHT VALUES
                         myP = new player();
                         //ADD GAME OBJECTS TO LAYOUTS
                         gameLayout.Children.Add(myP.gameObjectLayout);// this is unique. the rest should be added to mapLayout
                         //We set this up here the center of mapLayout is now valid!
-                        statsLayout.InputTransparent = true; //so clicks go through to gameOverLayout when visible
+                        //statsLayout.InputTransparent = true; //so clicks go through to gameOverLayout when visible
                         myP.setUpOBB(new Vector2(playerX, playerY), (float)myP.imageWidth - 8, (float)myP.imageHeight - 7, 0);
                         //myP.setUpOBB(new Vector2(playerX, playerY),32, 70, 0);
                         mapLayout.IsVisible = false;
@@ -755,6 +867,195 @@ namespace CROSSPLATFORM2DGAME {
 
         }
 
+        double currentBarHeight = 200;
+        double currentBarWidth = 40;
+
+        protected override void OnSizeAllocated(double width, double height) {
+            base.OnSizeAllocated(width, height);
+
+            // Only proceed if we have valid dimensions and the game is initialized
+            if (width <= 0 || height <= 0 || myP == null)
+                return;
+
+            // Update the game layout dimensions
+            gameLayoutWidth = width;
+            gameLayoutHeight = height;
+
+            // Calculate dynamic sizes based on screen dimensions
+            double shortestSide = Math.Min(width, height);
+
+            // Dynamic sizing with reasonable limits
+            currentBarHeight = Math.Clamp(height * 0.25, 150, 300);
+            currentBarWidth = Math.Clamp(width * 0.03, 35, 55);
+            maxBarHeight = currentBarHeight;
+
+            double dynamicHeartScale = Math.Clamp(shortestSide / 800.0, 0.8, 2.0); // Scale factor for hearts
+
+            // Update gameLayout and rotateLayout
+            gameLayout.WidthRequest = width;
+            gameLayout.HeightRequest = height;
+            rotateLayout.WidthRequest = width;
+            rotateLayout.HeightRequest = height;
+            AbsoluteLayout.SetLayoutBounds(rotateLayout, new Rect(0.5, 0.5, width, height));
+
+            // Update start layout
+            if (startLayout != null) {
+                startLayout.WidthRequest = width;
+                startLayout.HeightRequest = height;
+                AbsoluteLayout.SetLayoutBounds(startLayout, new Rect(0, 0, width, height));
+
+                if (startTitle != null) {
+                    double titleFontSize = Math.Clamp(shortestSide * 0.15, 40, 120);
+                    startTitle.FontSize = titleFontSize;
+
+                    // DON'T call SetLayoutBounds - it's already positioned correctly from setup
+                    // Just let the existing proportional positioning do its job
+                }
+            }
+
+            // Update settings layout
+            if (settingsLayout != null) {
+                settingsLayout.WidthRequest = width;
+                settingsLayout.HeightRequest = height;
+                AbsoluteLayout.SetLayoutBounds(settingsLayout, new Rect(0, 0, width, height));
+
+                if (settingsTitle != null) {
+                    double settingsFontSize = Math.Clamp(shortestSide * 0.12, 35, 100);
+                    settingsTitle.FontSize = settingsFontSize;
+
+                    // DON'T call SetLayoutBounds - it's already positioned correctly from setup
+                }
+            }
+
+            // Update game over layout
+            if (gameOverLayout != null) {
+                gameOverLayout.WidthRequest = width;
+                gameOverLayout.HeightRequest = height;
+                AbsoluteLayout.SetLayoutBounds(gameOverLayout, new Rect(0, 0, width, height));
+
+                if (gameOverLabel1 != null) {
+                    gameOverLabel1.WidthRequest = width / 3;
+                    gameOverLabel1.HeightRequest = height / 6;
+                    gameOverLabel1.FontSize = Math.Clamp(shortestSide * 0.06, 24, 48);
+                }
+                if (gameOverLabel2 != null) {
+                    gameOverLabel2.WidthRequest = width / 4;
+                    gameOverLabel2.HeightRequest = height / 7;
+                    gameOverLabel2.FontSize = Math.Clamp(shortestSide * 0.035, 18, 32);
+                }
+                if (gameOverLabel3 != null) {
+                    gameOverLabel3.WidthRequest = width / 4;
+                    gameOverLabel3.HeightRequest = height / 7;
+                    gameOverLabel3.FontSize = Math.Clamp(shortestSide * 0.035, 18, 32);
+                }
+                if (gameOverButton != null) {
+                    gameOverButton.WidthRequest = width / 8;
+                    gameOverButton.HeightRequest = height / 16;
+                    AbsoluteLayout.SetLayoutBounds(gameOverButton,
+                        new Rect(0.4, 0.75, gameOverButton.WidthRequest, gameOverButton.HeightRequest));
+                }
+                if (gameOverButton2 != null) {
+                    gameOverButton2.WidthRequest = width / 8;
+                    gameOverButton2.HeightRequest = height / 16;
+                    AbsoluteLayout.SetLayoutBounds(gameOverButton2,
+                        new Rect(0.6, 0.75, gameOverButton2.WidthRequest, gameOverButton2.HeightRequest));
+                }
+            }
+
+            // Update stats layout
+            if (statsLayout != null) {
+                statsLayout.WidthRequest = width;
+                statsLayout.HeightRequest = height;
+                AbsoluteLayout.SetLayoutBounds(statsLayout, new Rect(0, 0, width, height));
+            }
+
+            // Update FUEL LAYOUT
+            if (fuelLayout != null && fuelBar != null && fuelLabel != null) {
+                fuelLayout.WidthRequest = currentBarWidth;
+                fuelLayout.HeightRequest = currentBarHeight;
+                fuelBar.WidthRequest = currentBarWidth;
+                fuelLabel.FontSize = Math.Clamp(shortestSide * 0.02, 12, 18);
+
+                AbsoluteLayout.SetLayoutBounds(fuelLabel,
+                    new Rect(0, currentBarHeight, currentBarWidth, 25));
+
+                // Position at bottom-right
+                double fuelX = width - currentBarWidth - 20;
+                double fuelY = height - currentBarHeight - 60;
+
+                AbsoluteLayout.SetLayoutBounds(fuelLayout,
+                    new Rect(fuelX, fuelY, currentBarWidth, currentBarHeight));
+                AbsoluteLayout.SetLayoutFlags(fuelLayout, AbsoluteLayoutFlags.None);
+
+                updateFuelMeter(myP.fuel);
+            }
+
+            // Update BOOST LAYOUT
+            if (boostLayout != null && boostBar != null && boostLabel != null) {
+                boostLayout.WidthRequest = currentBarWidth;
+                boostLayout.HeightRequest = currentBarHeight;
+                boostBar.WidthRequest = currentBarWidth;
+                boostLabel.FontSize = Math.Clamp(shortestSide * 0.02, 12, 18);
+
+                AbsoluteLayout.SetLayoutBounds(boostLabel,
+                    new Rect(0, currentBarHeight, currentBarWidth, 25));
+
+                // Position at bottom-right, left of fuel bar
+                double boostX = width - (currentBarWidth * 2) - 35;
+                double boostY = height - currentBarHeight - 60;
+
+                AbsoluteLayout.SetLayoutBounds(boostLayout,
+                    new Rect(boostX, boostY, currentBarWidth, currentBarHeight));
+                AbsoluteLayout.SetLayoutFlags(boostLayout, AbsoluteLayoutFlags.None);
+
+                updateBoostMeter(myP.boostAmount);
+            }
+
+            // Update HEALTH LAYOUT - Scale individual hearts
+            if (healthLayout != null && h1 != null && h2 != null && h3 != null && h4 != null && h5 != null) {
+                // Keep the original layout size
+                double baseHeartSize = 48;
+                double healthWidth = baseHeartSize * 5.5;
+                healthLayout.WidthRequest = healthWidth;
+                healthLayout.HeightRequest = baseHeartSize * 1.2;
+
+                // Position from bottom-left
+                AbsoluteLayout.SetLayoutBounds(healthLayout,
+                    new Rect(20, height - (baseHeartSize * 1.2) - 20, healthWidth, baseHeartSize * 1.2));
+                AbsoluteLayout.SetLayoutFlags(healthLayout, AbsoluteLayoutFlags.None);
+
+                // Scale each heart individually
+                h1.Scale = dynamicHeartScale;
+                h2.Scale = dynamicHeartScale;
+                h3.Scale = dynamicHeartScale;
+                h4.Scale = dynamicHeartScale;
+                h5.Scale = dynamicHeartScale;
+
+                // Keep their original positions (these were set in setUpHealthLayout)
+                // Don't re-set layout bounds here, just scale them
+            }
+
+            // Update SCORE LABEL
+            if (scoreLabel != null) {
+                scoreLabel.FontSize = Math.Clamp(shortestSide * 0.025, 16, 22);
+            }
+
+            // Update TIMER
+            if (timerLabel != null) {
+                timerLabel.FontSize = Math.Clamp(shortestSide * 0.035, 20, 28);
+            }
+
+            // Update player position
+            if (mapLayout != null && myP != null) {
+                playerX = (float)(mapLayout.Width / 2);
+                playerY = (float)(mapLayout.Height / 2);
+                myP.setLayoutPosition(width / 2 - myP.layoutWidth / 2,
+                                    height / 2 - myP.layoutHeight / 2,
+                                    myP.layoutWidth,
+                                    myP.layoutHeight);
+            }
+        }
+
         //UI - START LAYOUT SETUP
         public void setUpStartLayout() {
             startLayout = new AbsoluteLayout {
@@ -766,7 +1067,7 @@ namespace CROSSPLATFORM2DGAME {
             startButton = new Button {
                 BackgroundColor = Colors.DarkGray,
                 Text = "Start",
-                FontFamily = "Consolas",
+                FontFamily = "consolas",
             };
 
             double shortestSide = Math.Min(gameLayoutWidth, gameLayoutHeight);
@@ -775,13 +1076,13 @@ namespace CROSSPLATFORM2DGAME {
 
             startTitle = new Label {
                 Text = "driv.r", //TITLE FOR THE Game ! 
-                FontFamily = "Consolas",
+                FontFamily = "consolas",
                 FontSize = fontSize
             };
 
             settingsBackButton = new Button {
                 Text = "Settings",
-                FontFamily = "Consolas",
+                FontFamily = "consolas",
                 BackgroundColor = Colors.DarkGray
             };
 
@@ -810,6 +1111,8 @@ namespace CROSSPLATFORM2DGAME {
             startLayout.Children.Add(settingsBackButton);
         }
 
+
+
         //UI - START BUTTON CLICKED LOGIC
         public void startButton_Clicked(object o, EventArgs e) {
             startLayout.IsVisible = false;
@@ -826,6 +1129,8 @@ namespace CROSSPLATFORM2DGAME {
         }
         //this is an ugly method that sets up all the layouts for the game
         //rotten looking to say the least.
+
+
 
         //UI - GAME LAYOUT SETUP
         public void SetupGameLayout() {
@@ -914,7 +1219,7 @@ namespace CROSSPLATFORM2DGAME {
                 VerticalTextAlignment = TextAlignment.Center
             };
 
-            AbsoluteLayout.SetLayoutBounds(scoreLabel, new Rect(0.001, 0.005, scoreLabel.WidthRequest, scoreLabel.HeightRequest));
+            AbsoluteLayout.SetLayoutBounds(scoreLabel, new Rect(0.001, 0.01, scoreLabel.WidthRequest, scoreLabel.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(scoreLabel, AbsoluteLayoutFlags.PositionProportional);
 
         }
@@ -1031,12 +1336,14 @@ namespace CROSSPLATFORM2DGAME {
                 WidthRequest = 200
             };
 
-            sfxSlider.ValueChanged += (s, e) => {
+            sfxSlider.ValueChanged += async (s, e) => {
                 myAudioHandler.setSoundEffectsVolume(sfxSlider.Value);
+                await JsonManager.SaveAudioSettingsAsync(musicSlider.Value, sfxSlider.Value);
             };
 
-            musicSlider.ValueChanged += (s, e) => {
+            musicSlider.ValueChanged += async (s, e) => {
                 myAudioHandler.setMusicVolume(musicSlider.Value);
+                await JsonManager.SaveAudioSettingsAsync(musicSlider.Value, sfxSlider.Value);
             };
 
             backToStartButton = new Button {
@@ -1081,12 +1388,14 @@ namespace CROSSPLATFORM2DGAME {
             settingsLayout.IsVisible = false;
         }
 
+        //UI - TO START FROM SETTINGS
         public void backToStartFromSettings() {
             settingsLayout.IsVisible = false;
             startLayout.IsVisible = true;
         }
 
-       public void backToSettingsFromStart() {
+        //UI - TO SETTINGS FROM START
+        public void backToSettingsFromStart() {
             settingsLayout.IsVisible = true;
             startLayout.IsVisible = false;
         }
@@ -1125,9 +1434,17 @@ namespace CROSSPLATFORM2DGAME {
             AbsoluteLayout.SetLayoutFlags(boostLabel, AbsoluteLayoutFlags.None);
 
             //AbsoluteLayout.SetLayoutBounds(fuelLayout, new Rect(.95, .95, fuelLayout.WidthRequest, fuelLayout.HeightRequest));
-            AbsoluteLayout.SetLayoutBounds(boostLayout, new Rect(gameLayoutWidth * .85, gameLayoutHeight * 0.48, boostLayout.WidthRequest, boostLayout.HeightRequest));
-            AbsoluteLayout.SetLayoutFlags(boostLayout, AbsoluteLayoutFlags.None);
 
+            double barWidth = 0.03;  // 3% of screen width
+            double barHeight = 0.25;
+
+#if WINDOWS
+            AbsoluteLayout.SetLayoutBounds(boostLayout, new Rect(0.85, 0.68, barWidth, barHeight));
+            AbsoluteLayout.SetLayoutFlags(boostLayout, AbsoluteLayoutFlags.All);
+#elif ANDROID
+            AbsoluteLayout.SetLayoutBounds(boostLayout, new Rect(0.78, 0.88, barWidth, barHeight));
+            AbsoluteLayout.SetLayoutFlags(boostLayout, AbsoluteLayoutFlags.All);
+#endif
             boostLayout.Children.Add(boostLabel);
             boostLayout.Children.Add(boostBar);
 
@@ -1135,18 +1452,30 @@ namespace CROSSPLATFORM2DGAME {
             //fuelLayout.Rotation += 180;
         }
 
+        //UI - FUEL METER UPDATE
+        public void updateFuelMeter(double fuel) {
+            double maxFuel = 100;
+            double fuelHeight = (fuel / maxFuel) * maxBarHeight; // This now uses the updated maxBarHeight
+
+            fuelBar.HeightRequest = fuelHeight;
+            AbsoluteLayout.SetLayoutBounds(fuelBar, new Rect(
+                0,
+                maxBarHeight - fuelHeight,
+                currentBarWidth, // Use current width
+                fuelHeight
+            ));
+        }
+
         //UI - BOOST METER UPDATE
         public void updateBoostMeter(double boost) {
             double maxBoost = 100;
-            double boostHeight = (boost / maxBoost) * maxBarHeight;
+            double boostHeight = (boost / maxBoost) * maxBarHeight; // This now uses the updated maxBarHeight
 
-            //fuelBar.HeightRequest = fuelHeight;
             boostBar.HeightRequest = boostHeight;
-            // Keep the bottom fixed
             AbsoluteLayout.SetLayoutBounds(boostBar, new Rect(
                 0,
                 maxBarHeight - boostHeight,
-                boostBar.WidthRequest,
+                currentBarWidth, // Use current width
                 boostHeight
             ));
         }
@@ -1213,40 +1542,58 @@ namespace CROSSPLATFORM2DGAME {
 
         //UI - HEALTH LAYOUT SETUP
         public void setUpHealthLayout() {
+#if WINDOWS
             healthLayout = new AbsoluteLayout {
                 BackgroundColor = Colors.Transparent,
                 WidthRequest = gameLayoutWidth / 6,
                 HeightRequest = gameLayoutHeight / 12
             };
 
+#elif ANDROID
+            healthLayout = new AbsoluteLayout {
+                BackgroundColor = Colors.Transparent,
+                WidthRequest = gameLayoutWidth / 2,
+                HeightRequest = gameLayoutHeight / 12
+            };
+
+#endif
             h1 = new Image {
-                Source = "heart1.png",
+                Source = "heart1.png"
             };
 
             h2 = new Image {
-                Source = "heart1.png",
+                Source = "heart1.png"
             };
 
             h3 = new Image {
-                Source = "heart1.png",
+                Source = "heart1.png"
             };
 
             h4 = new Image {
-                Source = "heart1.png",
+                Source = "heart1.png"
             };
 
             h5 = new Image {
-                Source = "heart1.png",
+                Source = "heart1.png"
             };
-
+#if WINDOWS
             AbsoluteLayout.SetLayoutBounds(healthLayout, new Rect(0.025, .90, healthLayout.WidthRequest, healthLayout.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(healthLayout, AbsoluteLayoutFlags.PositionProportional);
-
+#elif ANDROID
+ AbsoluteLayout.SetLayoutBounds(healthLayout, new Rect(0.025, .10, healthLayout.WidthRequest, healthLayout.HeightRequest));
+            AbsoluteLayout.SetLayoutFlags(healthLayout, AbsoluteLayoutFlags.PositionProportional);
+#endif
             AbsoluteLayout.SetLayoutBounds(h1, new Rect(0 ,0, 48, 48));
             AbsoluteLayout.SetLayoutBounds(h2, new Rect(healthLayout.WidthRequest / 5 * 1, 0, 48, 48));
             AbsoluteLayout.SetLayoutBounds(h3, new Rect(healthLayout.WidthRequest / 5 * 2, 0, 48, 48));
             AbsoluteLayout.SetLayoutBounds(h4, new Rect(healthLayout.WidthRequest / 5 * 3, 0, 48, 48));
             AbsoluteLayout.SetLayoutBounds(h5, new Rect(healthLayout.WidthRequest / 5 * 4, 0, 48, 48));
+
+            AbsoluteLayout.SetLayoutFlags(h1, AbsoluteLayoutFlags.None);
+            AbsoluteLayout.SetLayoutFlags(h2, AbsoluteLayoutFlags.None);
+            AbsoluteLayout.SetLayoutFlags(h3, AbsoluteLayoutFlags.None);
+            AbsoluteLayout.SetLayoutFlags(h4, AbsoluteLayoutFlags.None);
+            AbsoluteLayout.SetLayoutFlags(h5, AbsoluteLayoutFlags.None);
 
             healthLayout.Children.Add(h1);
             healthLayout.Children.Add(h2);
@@ -1284,12 +1631,19 @@ namespace CROSSPLATFORM2DGAME {
             AbsoluteLayout.SetLayoutBounds(fuelBar, new Rect(0, 0, fuelBar.WidthRequest, fuelBar.HeightRequest));
             AbsoluteLayout.SetLayoutFlags(fuelBar, AbsoluteLayoutFlags.None);
 
+            double barWidth = 0.03;  // 3% of screen width
+            double barHeight = 0.25;
+#if WINDOWS
+            AbsoluteLayout.SetLayoutBounds(fuelLayout, new Rect(0.9, 0.68,barWidth,barHeight));
+            AbsoluteLayout.SetLayoutFlags(fuelLayout, AbsoluteLayoutFlags.All);
+#elif ANDROID
+            AbsoluteLayout.SetLayoutBounds(fuelLayout, new Rect(0.9, 0.88,barWidth,barHeight));
+            AbsoluteLayout.SetLayoutFlags(fuelLayout, AbsoluteLayoutFlags.All);
+#endif
             AbsoluteLayout.SetLayoutBounds(fuelLabel, new Rect(0, fuelBar.HeightRequest, fuelLayout.WidthRequest, 20));
             AbsoluteLayout.SetLayoutFlags(fuelLabel, AbsoluteLayoutFlags.None);
             //AbsoluteLayout.SetLayoutBounds(fuelLayout, new Rect(.95, .95, fuelLayout.WidthRequest, fuelLayout.HeightRequest));
-            AbsoluteLayout.SetLayoutBounds(fuelLayout, new Rect(gameLayoutWidth * .90, gameLayoutHeight * 0.48, fuelLayout.WidthRequest, fuelLayout.HeightRequest));
-            AbsoluteLayout.SetLayoutFlags(fuelLayout, AbsoluteLayoutFlags.None);
-        
+            
             fuelLayout.Children.Add(fuelBar);
             fuelLayout.Children.Add(fuelLabel);
             //fuelBar.Rotation += 180;
@@ -1297,19 +1651,7 @@ namespace CROSSPLATFORM2DGAME {
         }
 
         //UI - FUEL METER UPDATE
-        public void updateFuelMeter(double fuel) {
-            double maxFuel = 100;
-            double fuelHeight = (fuel / maxFuel) * maxBarHeight;
-
-            //fuelBar.HeightRequest = fuelHeight;
-            fuelBar.HeightRequest = fuelHeight;
-            // Keep the bottom fixed
-            AbsoluteLayout.SetLayoutBounds(fuelBar, new Rect(
-                0,
-                maxBarHeight - fuelHeight,
-                fuelBar.WidthRequest,
-                fuelHeight
-            )); // Maui deciding to use proportional layout flags even if i specify not to is seriously annoying
-        }       // hate this, highly unintuitive system at all.
+       // Maui deciding to use proportional layout flags even if i specify not to is seriously annoying
+               // hate this, highly unintuitive system at all.
     }           // maybe it is i who is highly unintuitive.
 }

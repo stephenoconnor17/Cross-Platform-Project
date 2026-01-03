@@ -15,8 +15,7 @@ namespace CROSSPLATFORM2DGAME
         //try keep size tile to around 48 * 48. it doesnt have to fit perfectly. not that type of game.
         public AbsoluteLayout gameObjectLayout { get; set; }
         public Image gameObjectImage { get; set; }
-
-        
+   
         public double globalX { get; set; }
         public double globalY { get; set; }
         public double layoutWidth { get; set; }
@@ -37,7 +36,7 @@ namespace CROSSPLATFORM2DGAME
 
         public void setLayoutPosition(double x, double y, double width, double height) {
             AbsoluteLayout.SetLayoutBounds(gameObjectLayout, new Rect(x,y,width,height));
-            //the x and y of the layout is relative to the game world so we pass them into its globalCoordinateObject
+            //the x and y of the layout is relative to the game world so we pass them into its OBB, 
             //objectOBB = new OBB(new Vector2((float)x + (float)(width/2), (float)y+(float)height/2), width, height, 0); //not valid as playerlayout is based on gameLayout, not mapLayout. must be mapLayout
             //AbsoluteLayout.SetLayoutFlags(gameObjectLayout, AbsoluteLayoutFlags.None);
         }

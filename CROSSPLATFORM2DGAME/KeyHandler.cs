@@ -1,4 +1,5 @@
-﻿using System.Collections.Concurrent;
+﻿#if WINDOWS
+using System.Collections.Concurrent;
 
 namespace CROSSPLATFORM2DGAME {
     public class KeyHandler {
@@ -19,3 +20,4 @@ namespace CROSSPLATFORM2DGAME {
         internal void SetKeyUp(string key) => _keyStates[key] = false;
     }
 }
+#endif
